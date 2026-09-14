@@ -6,7 +6,13 @@ import { GymEquipmentOverride } from '@/components/gym-equipment-override'
 import { EquipmentThumb } from '@/components/equipment-icon'
 import { photoUrl } from '@/lib/equipment/columns'
 import { SubmitButton } from '@/components/submit-button'
-import { createEquipment, linkEquipment, unlinkEquipment } from '@/lib/equipment/actions'
+import {
+  archiveGym,
+  createEquipment,
+  linkEquipment,
+  renameGym,
+  unlinkEquipment,
+} from '@/lib/equipment/actions'
 import { gymWithEquipment } from '@/lib/equipment/queries'
 
 export default async function GymPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,7 +33,30 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
         ← Залы
       </Link>
 
-      <h1 className="text-2xl font-semibold tracking-tight">{data.gym.name}</h1>
+      <form
+        key={`${data.gym.name}-${data.gym.note}`}
+        action={renameGym}
+        className="flex flex-col gap-2"
+      >
+        <input type="hidden" name="gymId" value={data.gym.id} />
+        <input
+          name="name"
+          required
+          defaultValue={data.gym.name}
+          className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-xl font-semibold tracking-tight dark:border-white/20"
+        />
+        <div className="flex gap-2">
+          <input
+            name="note"
+            placeholder="Заметка, например адрес"
+            defaultValue={data.gym.note ?? ''}
+            className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-sm dark:border-white/20"
+          />
+          <SubmitButton className="shrink-0 rounded-xl border border-black/15 px-4 text-sm dark:border-white/20">
+            Сохранить
+          </SubmitButton>
+        </div>
+      </form>
 
       <section className="flex flex-col gap-1">
         {data.equipment.length === 0 && (
@@ -127,6 +156,17 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
           <EquipmentForm action={createEquipment} gymId={data.gym.id} submitLabel="Создать" />
         </div>
       </details>
+
+      <form action={archiveGym} className="pt-2 text-center">
+        <input type="hidden" name="gymId" value={data.gym.id} />
+        <SubmitButton className="text-xs text-red-600/70 hover:text-red-600 dark:text-red-400/70">
+          Убрать зал
+        </SubmitButton>
+        <p className="mt-1 text-xs opacity-35">
+          Перестанет предлагаться при старте тренировки. Проведённые тренировки останутся
+          целыми.
+        </p>
+      </form>
     </main>
   )
 }

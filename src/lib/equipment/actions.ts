@@ -51,6 +51,25 @@ export async function renameGym(formData: FormData) {
   revalidatePath(`/gyms/${id}`)
 }
 
+/**
+ * Убирает зал из списка, не удаляя его.
+ *
+ * На зал ссылаются проведённые тренировки, и удалять его значило бы либо
+ * терять историю, либо ломать ссылки. Зал просто перестаёт предлагаться
+ * при старте тренировки и в каталоге; прошлые тренировки остаются целыми.
+ */
+export async function archiveGym(formData: FormData) {
+  const userId = await requireUser()
+  const id = str(formData, 'gymId')
+
+  await db
+    .update(gyms)
+    .set({ isActive: false })
+    .where(and(eq(gyms.id, id), eq(gyms.userId, userId)))
+
+  redirect('/gyms')
+}
+
 /** Сетка весов из формы. Ряд задаётся короткой записью: «1-10, 12-40 через 2». */
 function gridFrom(formData: FormData) {
   const spec = str(formData, 'ladder')
