@@ -43,8 +43,18 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     sorted.map(async (row) => {
       const logged = data.logsByItem.get(row.item.id) ?? []
       const isCurrent = row.item.id === currentId
+      // Упражнение, у которого есть свой пункт в этой тренировке, не предлагается
+      // как замена другому: жим под 30° — это отдельный пункт, а не альтернатива 45°.
+      const plannedElsewhere = data.items
+        .filter((r) => r.item.id !== row.item.id)
+        .flatMap((r) => [r.item.exerciseId, r.templateItem?.preferredExerciseId])
+        .filter((id): id is string => Boolean(id))
+
       const alternatives = isCurrent
-        ? await alternativesFor(userId, data.session.gymId, row.item.patternCode)
+        ? await alternativesFor(userId, data.session.gymId, row.item.patternCode, [
+            ...plannedElsewhere,
+            ...(row.templateItem?.excludedExerciseIds ?? []),
+          ])
         : []
       const volume = isCurrent
         ? await historyVolume(

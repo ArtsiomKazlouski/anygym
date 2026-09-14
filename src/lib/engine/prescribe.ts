@@ -81,7 +81,15 @@ export type SetPlan = {
   role: SetRole
   weight: SnappedWeight
   reps: readonly [number, number]
+  /** Доля от верхнего веса. Есть только у ступеней рампы и у верхнего подхода. */
+  percent?: number
 }
+
+/**
+ * Ниже этой доли ступень не считается показательной: подход пустым грифом
+ * на 20% ничего не говорит о том, каким будет твой верх сегодня.
+ */
+export const RE_ANCHOR_MIN_PERCENT = 0.5
 
 export type Prescription = {
   scheme: Scheme
@@ -164,6 +172,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
         role: isTop ? 'working' : 'ramp',
         weight,
         reps: isTop ? [repMin, repMax] : [target ?? repMax, target ?? repMax],
+        percent: p,
       })
     })
 
@@ -342,6 +351,36 @@ export function nextSet(args: {
 }
 
 /**
+ * Пересчёт остатка рампы под фактически поставленный вес.
+ *
+ * Ты поставил не то, что предложено — значит сегодня рампа идёт по другой
+ * траектории, и остаток должен поехать вместе с ней. Ступени ниже
+ * RE_ANCHOR_MIN_PERCENT ничего не пересчитывают: подход пустым грифом
+ * не говорит о том, каким будет твой верх.
+ */
+export function reanchorRamp(args: {
+  sets: SetPlan[]
+  doneIndex: number
+  actualKg: number
+  grid: WeightGrid
+}): { sets: SetPlan[]; scale: number } {
+  const { sets, doneIndex, actualKg, grid } = args
+  const done = sets[doneIndex]
+  const planned = done?.weight.weightKg ?? 0
+
+  if (done?.percent == null || done.percent < RE_ANCHOR_MIN_PERCENT) return { sets, scale: 1 }
+  if (planned <= 0 || Math.abs(actualKg - planned) < 1e-6) return { sets, scale: 1 }
+
+  const scale = actualKg / planned
+  return {
+    sets: sets.map((s, i) =>
+      i <= doneIndex ? s : { ...s, weight: snapKg(s.weight.weightKg * scale, grid, 'nearest') },
+    ),
+    scale,
+  }
+}
+
+/**
  * Ограничение рампы по ходу дела.
  *
  * Подводящий подход прошёл тяжелее ожидаемого — значит запланированный верх
@@ -356,12 +395,14 @@ export function capRamp(args: {
   doneIndex: number
   feedback: SetFeedback
   grid: WeightGrid
+  /** Фактический вес сделанного подхода, если он отличается от плана. */
+  doneKg?: number
 }): { remaining: SetPlan[]; note?: string } {
   const { sets, doneIndex, feedback, grid } = args
   const rest = sets.slice(doneIndex + 1)
   if (rest.length === 0) return { remaining: [] }
 
-  const doneKg = sets[doneIndex].weight.weightKg
+  const doneKg = args.doneKg ?? sets[doneIndex].weight.weightKg
 
   if (feedback === 'failed') {
     return {

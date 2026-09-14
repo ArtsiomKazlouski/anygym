@@ -1,6 +1,13 @@
 import type { setLogs } from '@/db/schema'
 import type { ItemPlan } from '@/lib/session/plan'
-import { deferItem, finishItem, logSet, pickExercise, resumeItem } from '@/lib/session/actions'
+import {
+  deferItem,
+  deleteSet,
+  finishItem,
+  logSet,
+  pickExercise,
+  resumeItem,
+} from '@/lib/session/actions'
 
 type Logged = typeof setLogs.$inferSelect
 
@@ -144,15 +151,25 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
       {logged.length > 0 && (
         <ol className="mt-3 flex flex-col gap-1">
           {logged.map((s) => (
-            <li key={s.id} className="flex items-baseline gap-2 text-sm opacity-60">
-              <span className="w-20 shrink-0 tabular-nums">
+            <li key={s.id} className="flex items-center gap-2 text-sm">
+              <span className="w-24 shrink-0 tabular-nums opacity-70">
                 {s.weight} {s.units}
               </span>
-              <span className="tabular-nums">× {s.reps}</span>
-              <span className="text-xs">
+              <span className="shrink-0 tabular-nums opacity-70">{s.reps} повт</span>
+              <span className="min-w-0 flex-1 truncate text-xs opacity-45">
                 {ROLE_LABEL[s.kind]}
                 {s.painZone && ' · боль'}
               </span>
+              <form action={deleteSet}>
+                <input type="hidden" name="setId" value={s.id} />
+                <button
+                  type="submit"
+                  aria-label="Удалить подход"
+                  className="shrink-0 rounded-full border border-black/15 px-2.5 py-1 text-xs opacity-50 hover:opacity-100 dark:border-white/20"
+                >
+                  Удалить
+                </button>
+              </form>
             </li>
           ))}
         </ol>
@@ -200,7 +217,9 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
 
 function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
   const current = plan.current!
-  const isWorking = current.role === 'working'
+  // Фидбек спрашиваем и на подводящих: по нему срезается остаток рампы.
+  // На разминке не спрашиваем — она ни на что не влияет.
+  const wantsFeedback = current.role !== 'warmup'
   const [repLo, repHi] = current.reps
   const repTarget = repLo === repHi ? `${repLo}` : `${repLo}–${repHi}`
 
@@ -237,21 +256,29 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
         </label>
       </div>
 
-      {isWorking ? (
-        <div className="grid grid-cols-2 gap-2">
-          {FEEDBACK.map((f) => (
-            <button
-              key={f.value}
-              type="submit"
-              name="feedback"
-              value={f.value}
-              className="rounded-2xl border border-black/15 px-3 py-3 text-left dark:border-white/20"
-            >
-              <span className="block text-sm font-medium">{f.label}</span>
-              <span className="block text-xs opacity-50">{f.hint}</span>
-            </button>
-          ))}
-        </div>
+      {wantsFeedback ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {FEEDBACK.map((f) => (
+              <button
+                key={f.value}
+                type="submit"
+                name="feedback"
+                value={f.value}
+                className="rounded-2xl border border-black/15 px-3 py-3 text-left dark:border-white/20"
+              >
+                <span className="block text-sm font-medium">{f.label}</span>
+                <span className="block text-xs opacity-50">{f.hint}</span>
+              </button>
+            ))}
+          </div>
+          {current.role === 'ramp' && (
+            <p className="text-xs opacity-45">
+              Это подводящий подход — в прогрессию он не идёт. Ответ нужен, чтобы понять, брать
+              ли запланированный верх.
+            </p>
+          )}
+        </>
       ) : (
         <button
           type="submit"

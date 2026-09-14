@@ -8,6 +8,7 @@ import {
   capRamp,
   nextSet,
   prescribe,
+  reanchorRamp,
 } from '@/lib/engine'
 import { resolveGrid } from './grid'
 import { daysSincePattern, lastSessionSets, painRecent, probeBaseKg, setupFor } from './queries'
@@ -91,17 +92,37 @@ export async function buildItemPlan(args: {
 
   const notes = [...prescription.notes]
   const done = args.logged.length
-  let remaining = prescription.sets.slice(done)
   const previous = done > 0 ? args.logged[done - 1] : null
+  const previousPlan = done > 0 ? prescription.sets[done - 1] : null
+
+  // Поставил не тот вес, что предложен — остаток рампы едет пропорционально.
+  let effective = prescription.sets
+  if (args.scheme === 'ramp' && previous && previousPlan) {
+    const re = reanchorRamp({
+      sets: prescription.sets,
+      doneIndex: done - 1,
+      actualKg: previous.weightKg,
+      grid,
+    })
+    effective = re.sets
+    if (re.scale !== 1) {
+      notes.push(
+        `Ты поставил ${previous.weight} вместо ${previousPlan.weight.weight} — остаток пересчитан`,
+      )
+    }
+  }
+
+  let remaining = effective.slice(done)
 
   if (previous?.feedback) {
     if (args.scheme === 'ramp' && previous.kind === 'ramp') {
       // Подводящий дался тяжелее ожидаемого — срезаем остаток рампы.
       const capped = capRamp({
-        sets: prescription.sets,
+        sets: effective,
         doneIndex: done - 1,
         feedback: previous.feedback,
         grid,
+        doneKg: previous.weightKg,
       })
       remaining = capped.remaining
       if (capped.note) notes.push(capped.note)

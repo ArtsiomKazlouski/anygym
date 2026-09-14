@@ -7,6 +7,7 @@ import {
   nextSet,
   prescribe,
   capRamp,
+  reanchorRamp,
   type LoggedSet,
   type Prescription,
 } from './prescribe.ts'
@@ -510,5 +511,68 @@ describe('заявленный вес', () => {
       probeBaseKg: 60,
     })
     assert.equal(p.source, 'probe', 'после долгого перерыва старый заявленный вес не аргумент')
+  })
+})
+
+describe('пересчёт рампы под фактический вес', () => {
+  const olympicBar: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
+
+  const benchPlan = () =>
+    prescribe({
+      scheme: 'ramp',
+      grid: olympicBar,
+      repMin: 5,
+      repMax: 6,
+      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+      rampReps: [12, 12, 10, 10],
+      lastSessionSets: sets([100, 6, 'limit']),
+      daysSincePattern: 7,
+      painRecent: false,
+      firstForMuscleGroup: false,
+    }).sets
+
+  it('двигает остаток, когда вес изменён на показательной ступени', () => {
+    const plan = benchPlan() // 20, 60, 80, 90, 100
+    // вместо 80 поставил 88 -> остаток едет на 10%
+    const re = reanchorRamp({ sets: plan, doneIndex: 2, actualKg: 88, grid: olympicBar })
+    assert.equal(re.scale, 1.1)
+    assert.deepEqual(
+      re.sets.map((s) => s.weight.weight),
+      [20, 60, 80, 100, 110],
+    )
+  })
+
+  it('тянет остаток вниз так же, как вверх', () => {
+    const plan = benchPlan()
+    // вместо 90 поставил 85
+    const re = reanchorRamp({ sets: plan, doneIndex: 3, actualKg: 85, grid: olympicBar })
+    assert.equal(re.sets[4].weight.weight, 95, 'верх опустился вместе с подводящим')
+  })
+
+  it('игнорирует отклонение на разминочной ступени', () => {
+    const plan = benchPlan()
+    // 20 -> 25 на ступени 0.2: пустой гриф ничего не говорит о верхе
+    const re = reanchorRamp({ sets: plan, doneIndex: 0, actualKg: 25, grid: olympicBar })
+    assert.equal(re.scale, 1)
+    assert.deepEqual(
+      re.sets.map((s) => s.weight.weight),
+      [20, 60, 80, 90, 100],
+    )
+  })
+
+  it('ничего не трогает, когда вес совпал с планом', () => {
+    const plan = benchPlan()
+    const re = reanchorRamp({ sets: plan, doneIndex: 2, actualKg: 80, grid: olympicBar })
+    assert.equal(re.scale, 1)
+    assert.deepEqual(re.sets, plan)
+  })
+
+  it('не двигает уже сделанные подходы', () => {
+    const plan = benchPlan()
+    const re = reanchorRamp({ sets: plan, doneIndex: 2, actualKg: 88, grid: olympicBar })
+    assert.deepEqual(
+      re.sets.slice(0, 3).map((s) => s.weight.weight),
+      [20, 60, 80],
+    )
   })
 })

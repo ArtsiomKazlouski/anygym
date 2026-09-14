@@ -121,21 +121,22 @@ export async function logSet(formData: FormData) {
 
   const grid = resolveGrid(exercise.model, instance)
 
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(*)::int` })
+  const [{ next }] = await db
+    .select({ next: sql<number>`coalesce(max(${setLogs.position}), -1) + 1` })
     .from(setLogs)
     .where(eq(setLogs.sessionItemId, item.id))
 
   await db.insert(setLogs).values({
     sessionItemId: item.id,
-    position: n,
+    position: next,
     kind,
     weight,
     units: grid.units,
     weightKg: toKg(weight, grid.units),
     reps,
-    // Разминка и подводящие в прогрессии не участвуют — фидбек у них не спрашиваем.
-    feedback: kind === 'working' && feedbackRaw ? (feedbackRaw as never) : null,
+    // Фидбек собирается и на подводящих: по нему срезается остаток рампы.
+    // В прогрессии они всё равно не участвуют — та смотрит только на kind='working'.
+    feedback: kind !== 'warmup' && feedbackRaw ? (feedbackRaw as never) : null,
     painZone,
     prescribedWeightKg: prescribed != null ? Number(prescribed) : null,
     prescriptionSource: source ? (source as never) : null,
@@ -146,6 +147,22 @@ export async function logSet(formData: FormData) {
   }
 
   revalidatePath(`/session/${item.sessionId}`)
+}
+
+export async function deleteSet(formData: FormData) {
+  const userId = await requireUser()
+  const setId = String(formData.get('setId') ?? '')
+
+  const [row] = await db
+    .select({ set: setLogs, item: sessionItems })
+    .from(setLogs)
+    .innerJoin(sessionItems, eq(sessionItems.id, setLogs.sessionItemId))
+    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionItems.sessionId))
+    .where(and(eq(setLogs.id, setId), eq(workoutSessions.userId, userId)))
+  if (!row) throw new Error('Подход не найден')
+
+  await db.delete(setLogs).where(eq(setLogs.id, setId))
+  revalidatePath(`/session/${row.item.sessionId}`)
 }
 
 /** Занято: пункт уезжает в конец, к нему предложим вернуться позже. */

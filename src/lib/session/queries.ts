@@ -44,8 +44,13 @@ export async function activeSession(userId: string) {
 }
 
 /** Упражнения, доступные в этом зале под заданный паттерн. */
-export async function alternativesFor(userId: string, gymId: string, patternCode: string) {
-  return db
+export async function alternativesFor(
+  userId: string,
+  gymId: string,
+  patternCode: string,
+  excludeExerciseIds: string[] = [],
+) {
+  const rows = await db
     .select({
       id: exercises.id,
       name: exercises.name,
@@ -69,6 +74,9 @@ export async function alternativesFor(userId: string, gymId: string, patternCode
       ),
     )
     .orderBy(exercises.name)
+
+  const excluded = new Set(excludeExerciseIds)
+  return rows.filter((r) => !excluded.has(r.id))
 }
 
 /** Сколько рабочих подходов накоплено по упражнению — этим ранжируются альтернативы. */
