@@ -78,6 +78,17 @@ export async function pickExercise(formData: FormData) {
   const exerciseId = String(formData.get('exerciseId') ?? '')
   const { item } = await ownedItem(userId, itemId)
 
+  // Упражнение выбирается до первого подхода. Дальше смена означала бы, что
+  // подходы, записанные на одну железку, приписаны другой. Чтобы передумать,
+  // надо удалить записанное — тогда замок снимется сам.
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(setLogs)
+    .where(eq(setLogs.sessionItemId, item.id))
+  if (n > 0) {
+    throw new Error('Подходы уже записаны — удали их, если нужно сменить упражнение')
+  }
+
   await db
     .update(sessionItems)
     .set({ exerciseId, status: 'active' })

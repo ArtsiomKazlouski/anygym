@@ -119,7 +119,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         <p className="mt-2 text-xs opacity-50">{row.templateItem.note}</p>
       )}
 
-      {alternatives.length > 1 && (
+      {alternatives.length > 1 && logged.length === 0 && (
         <form action={pickExercise} className="mt-3 flex gap-2 overflow-x-auto pb-1">
           <input type="hidden" name="itemId" value={item.id} />
           {alternatives.map((a) => {
