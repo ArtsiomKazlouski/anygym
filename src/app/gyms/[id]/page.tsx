@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { EquipmentForm } from '@/components/equipment-form'
+import { GymEquipmentOverride } from '@/components/gym-equipment-override'
 import { SubmitButton } from '@/components/submit-button'
 import { createEquipment, linkEquipment, unlinkEquipment } from '@/lib/equipment/actions'
 import { gymWithEquipment } from '@/lib/equipment/queries'
@@ -30,32 +31,43 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
         {data.equipment.length === 0 && (
           <p className="text-sm opacity-50">Оборудования пока нет.</p>
         )}
-        {data.equipment.map(({ link, model, exercises }) => (
-          <div key={link.id} className="flex items-center gap-2">
-            <Link
-              href={`/equipment/${model.id}`}
-              className="min-w-0 flex-1 rounded-xl px-2 py-2.5 transition duration-75 hover:bg-black/5 active:scale-[0.97] dark:hover:bg-white/10"
+        {data.equipment.map(({ link, model, exercises }) => {
+          const ladder = link.ladderOverride ?? model.ladder
+          const step = link.stepOverride ?? model.step
+          return (
+            <div
+              key={link.id}
+              className="rounded-2xl border border-black/10 px-3 py-2 dark:border-white/15"
             >
-              <div className="truncate text-sm font-medium">{model.name}</div>
-              <div className="text-xs opacity-45">
-                {model.ladder?.length
-                  ? `ряд из ${model.ladder.length}`
-                  : model.step
-                    ? `шаг ${model.step}`
-                    : 'сетка не задана'}
-                {' · '}
-                {exercises} упр.
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/equipment/${model.id}`}
+                  className="min-w-0 flex-1 rounded-xl py-1 transition duration-75 active:scale-[0.98]"
+                >
+                  <div className="truncate text-sm font-medium">{model.name}</div>
+                  <div className="text-xs opacity-45">
+                    {ladder?.length
+                      ? `ряд из ${ladder.length}`
+                      : step
+                        ? `шаг ${step}`
+                        : 'сетка не задана'}
+                    {' · '}
+                    {exercises} упр.
+                    {link.locationNote && ` · ${link.locationNote}`}
+                  </div>
+                </Link>
+                <form action={unlinkEquipment}>
+                  <input type="hidden" name="linkId" value={link.id} />
+                  <input type="hidden" name="gymId" value={data.gym.id} />
+                  <SubmitButton className="rounded-full px-2 py-1.5 text-xs opacity-35 hover:opacity-100">
+                    Убрать
+                  </SubmitButton>
+                </form>
               </div>
-            </Link>
-            <form action={unlinkEquipment}>
-              <input type="hidden" name="linkId" value={link.id} />
-              <input type="hidden" name="gymId" value={data.gym.id} />
-              <SubmitButton className="rounded-full px-2 py-1.5 text-xs opacity-35 hover:opacity-100">
-                Убрать
-              </SubmitButton>
-            </form>
-          </div>
-        ))}
+              <GymEquipmentOverride link={link} model={model} gymId={data.gym.id} />
+            </div>
+          )
+        })}
       </section>
 
       {data.others.length > 0 && (

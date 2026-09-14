@@ -127,6 +127,60 @@ export async function linkEquipment(formData: FormData) {
 }
 
 /**
+ * Переопределения сетки для этого зала.
+ *
+ * Одна модель стоит в разных залах, и сетка у неё может отличаться: тот же
+ * модельный ряд бывает со стеком в фунтах, у гантельного ряда другой верх.
+ * Пустое поле означает «как у модели», а не ноль.
+ */
+export async function updateGymEquipment(formData: FormData) {
+  await requireUser()
+  const linkId = str(formData, 'linkId')
+  const gymId = str(formData, 'gymId')
+
+  const spec = str(formData, 'ladderOverride')
+  const { values, error } = parseLadder(spec)
+  if (error) throw new Error(error)
+
+  const units = str(formData, 'unitsOverride')
+  const step = num(formData, 'stepOverride')
+  const min = num(formData, 'minOverride')
+  const max = num(formData, 'maxOverride')
+
+  // Смена единиц без остальных полей — молчаливая путаница: минимум
+  // и максимум модели заданы в её единицах и были бы прочитаны как чужие.
+  // Ряд весов задаёт сетку целиком, поэтому с ним границы не нужны.
+  const [model] = await db
+    .select({ units: equipmentModels.units })
+    .from(gymEquipment)
+    .innerJoin(equipmentModels, eq(equipmentModels.id, gymEquipment.equipmentModelId))
+    .where(eq(gymEquipment.id, linkId))
+
+  if (units && model && units !== model.units && values.length === 0) {
+    if (step == null || min == null || max == null) {
+      throw new Error(
+        'Сменил единицы — задай шаг, минимум и максимум в них же, иначе числа модели будут прочитаны как чужие',
+      )
+    }
+  }
+
+  await db
+    .update(gymEquipment)
+    .set({
+      locationNote: str(formData, 'locationNote') || null,
+      unitsOverride: units ? (units as 'kg' | 'lb') : null,
+      stepOverride: step,
+      rampStepOverride: num(formData, 'rampStepOverride'),
+      minOverride: min,
+      maxOverride: max,
+      ladderOverride: values.length > 0 ? values : null,
+    })
+    .where(eq(gymEquipment.id, linkId))
+
+  revalidatePath(`/gyms/${gymId}`)
+}
+
+/**
  * Убирает железку из зала, не удаляя модель: история подходов висит на
  * упражнении и модели, и терять её из-за того, что тренажёр вынесли,
  * нельзя — в другом зале такой же может стоять.
