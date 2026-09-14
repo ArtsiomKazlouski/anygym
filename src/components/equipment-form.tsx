@@ -2,7 +2,7 @@ import { SubmitButton } from '@/components/submit-button'
 import { formatLadder } from '@/lib/equipment/ladder'
 import type { equipmentModels } from '@/db/schema'
 
-type Model = typeof equipmentModels.$inferSelect
+type Model = Omit<typeof equipmentModels.$inferSelect, 'photo' | 'photoMime'>
 
 const KINDS = [
   { value: 'stack', label: 'Грузоблок' },

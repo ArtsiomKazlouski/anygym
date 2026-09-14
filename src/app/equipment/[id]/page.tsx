@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { EquipmentForm } from '@/components/equipment-form'
+import { PhotoUpload } from '@/components/photo-upload'
+import { photoUrl } from '@/lib/equipment/columns'
 import { SubmitButton } from '@/components/submit-button'
 import {
   archiveExercise,
@@ -47,6 +49,18 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
             : 'Ни в одном зале не отмечен'}
         </p>
       </header>
+
+      <section>
+        <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Фото</h2>
+        <p className="mb-3 text-xs opacity-45">
+          Не для красоты: это способ узнать в новом зале, что тренажёр тот же самый. Без
+          узнавания не работает перенос истории между залами.
+        </p>
+        <PhotoUpload
+          modelId={data.model.id}
+          currentUrl={data.model.hasPhoto ? photoUrl(data.model) : null}
+        />
+      </section>
 
       <section>
         <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Настройки под тебя</h2>

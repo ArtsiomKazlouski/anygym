@@ -4,7 +4,7 @@ import { updateGymEquipment } from '@/lib/equipment/actions'
 import type { equipmentModels, gymEquipment } from '@/db/schema'
 
 type Link = typeof gymEquipment.$inferSelect
-type Model = typeof equipmentModels.$inferSelect
+type Model = Omit<typeof equipmentModels.$inferSelect, 'photo' | 'photoMime'>
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2 text-sm dark:border-white/20'

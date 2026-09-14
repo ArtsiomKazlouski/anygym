@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { equipmentModels, equipmentSetups, exercises, gymEquipment, gyms } from '@/db/schema'
+import { MODEL_COLUMNS } from './columns'
 
 /**
  * Счёт оборудования делается соединением, а не коррелированным подзапросом.
@@ -38,7 +39,7 @@ export async function gymWithEquipment(userId: string, gymId: string) {
   const equipment = await db
     .select({
       link: gymEquipment,
-      model: equipmentModels,
+      model: MODEL_COLUMNS,
       exercises: sql<number>`(
         select count(*)::int from ${exercises}
         where ${exercises.equipmentModelId} = ${equipmentModels.id} and ${exercises.isActive}
@@ -52,7 +53,13 @@ export async function gymWithEquipment(userId: string, gymId: string) {
   const linkedIds = new Set(equipment.map((e) => e.model.id))
   const others = (
     await db
-      .select({ id: equipmentModels.id, name: equipmentModels.name })
+      .select({
+        id: equipmentModels.id,
+        name: equipmentModels.name,
+        notes: equipmentModels.notes,
+        updatedAt: equipmentModels.updatedAt,
+        hasPhoto: sql<boolean>`${equipmentModels.photo} is not null`,
+      })
       .from(equipmentModels)
       .where(eq(equipmentModels.userId, userId))
       .orderBy(equipmentModels.name)
@@ -63,7 +70,7 @@ export async function gymWithEquipment(userId: string, gymId: string) {
 
 export async function equipmentCard(userId: string, modelId: string) {
   const [model] = await db
-    .select()
+    .select(MODEL_COLUMNS)
     .from(equipmentModels)
     .where(and(eq(equipmentModels.id, modelId), eq(equipmentModels.userId, userId)))
   if (!model) return null

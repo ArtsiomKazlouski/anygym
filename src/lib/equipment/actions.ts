@@ -226,6 +226,55 @@ export async function saveSetup(formData: FormData) {
   revalidatePath(`/equipment/${equipmentModelId}`)
 }
 
+/** Наибольший размер картинки после сжатия. Браузер должен уложиться сам. */
+const PHOTO_LIMIT_BYTES = 400_000
+
+/**
+ * Фото железки.
+ *
+ * Приходит уже сжатым: браузер уменьшает снимок до 400px по длинной стороне
+ * и переводит в WebP. Снимок с телефона — это 3-5 МБ, и гнать их на сервер,
+ * чтобы сжать там, значит платить трафиком в зале, где связь и так так себе.
+ *
+ * Фото нужно не для красоты: это способ узнать в новом зале, что тренажёр
+ * тот же самый, а без узнавания не работает перенос истории между залами.
+ */
+export async function savePhoto(formData: FormData) {
+  const userId = await requireUser()
+  const modelId = str(formData, 'modelId')
+  const dataUrl = String(formData.get('photo') ?? '')
+
+  if (!dataUrl) throw new Error('Фото не выбрано')
+
+  const parsed = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
+  if (!parsed) throw new Error('Неожиданный формат фото')
+
+  const bytes = Buffer.from(parsed[2], 'base64')
+  if (bytes.length === 0) throw new Error('Пустое фото')
+  if (bytes.length > PHOTO_LIMIT_BYTES) {
+    throw new Error('Фото не сжалось — попробуй снять ещё раз')
+  }
+
+  await db
+    .update(equipmentModels)
+    .set({ photo: bytes, photoMime: parsed[1], updatedAt: new Date() })
+    .where(and(eq(equipmentModels.id, modelId), eq(equipmentModels.userId, userId)))
+
+  revalidatePath(`/equipment/${modelId}`)
+}
+
+export async function deletePhoto(formData: FormData) {
+  const userId = await requireUser()
+  const modelId = str(formData, 'modelId')
+
+  await db
+    .update(equipmentModels)
+    .set({ photo: null, photoMime: null, updatedAt: new Date() })
+    .where(and(eq(equipmentModels.id, modelId), eq(equipmentModels.userId, userId)))
+
+  revalidatePath(`/equipment/${modelId}`)
+}
+
 export async function createExerciseOn(formData: FormData) {
   const userId = await requireUser()
   const equipmentModelId = str(formData, 'modelId')

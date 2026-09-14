@@ -240,6 +240,15 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         </div>
       )}
 
+      {plan?.photoUrl && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={plan.photoUrl}
+          alt=""
+          className="mt-3 max-h-40 w-full rounded-xl object-cover"
+        />
+      )}
+
       {plan?.setup && Object.keys(plan.setup).length > 0 && (
         <div className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">
           <span className="opacity-50">Настройки: </span>

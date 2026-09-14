@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { EquipmentForm } from '@/components/equipment-form'
 import { GymEquipmentOverride } from '@/components/gym-equipment-override'
+import { photoUrl } from '@/lib/equipment/columns'
 import { SubmitButton } from '@/components/submit-button'
 import { createEquipment, linkEquipment, unlinkEquipment } from '@/lib/equipment/actions'
 import { gymWithEquipment } from '@/lib/equipment/queries'
@@ -40,6 +41,14 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
               className="rounded-2xl border border-black/10 px-3 py-2 dark:border-white/15"
             >
               <div className="flex items-center gap-2">
+                {model.hasPhoto && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={photoUrl(model)}
+                    alt=""
+                    className="size-12 shrink-0 rounded-lg object-cover"
+                  />
+                )}
                 <Link
                   href={`/equipment/${model.id}`}
                   className="min-w-0 flex-1 rounded-xl py-1 transition duration-75 active:scale-[0.98]"
@@ -79,26 +88,34 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
             Если модель уже заведена в другом зале, привяжи её сюда — история и настройки
             перенесутся, калиброваться заново не придётся.
           </p>
-          <form action={linkEquipment} className="mt-2 flex flex-col gap-2">
+          {/*
+            Выбор картинками, а не списком: в чужом зале ты сверяешь железку
+            глазами, а название помнишь хуже, чем как она выглядит.
+          */}
+          <form action={linkEquipment} className="mt-3 grid grid-cols-2 gap-2">
             <input type="hidden" name="gymId" value={data.gym.id} />
-            <select
-              name="equipmentModelId"
-              required
-              defaultValue=""
-              className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20"
-            >
-              <option value="" disabled>
-                выбери модель
-              </option>
-              {data.others.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
-              Привязать
-            </SubmitButton>
+            {data.others.map((m) => (
+              <SubmitButton
+                key={m.id}
+                name="equipmentModelId"
+                value={m.id}
+                className="flex flex-col gap-1 rounded-xl border border-black/15 p-2 text-left dark:border-white/20"
+              >
+                {m.hasPhoto ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={photoUrl(m)}
+                    alt=""
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-black/5 text-xs opacity-35 dark:bg-white/10">
+                    без фото
+                  </span>
+                )}
+                <span className="line-clamp-2 text-xs">{m.name}</span>
+              </SubmitButton>
+            ))}
           </form>
         </details>
       )}

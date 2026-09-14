@@ -1,7 +1,8 @@
 import type { WeightGrid } from '@/lib/engine'
 import type { equipmentModels, gymEquipment } from '@/db/schema'
 
-type Model = typeof equipmentModels.$inferSelect
+// Байты фото сюда не приезжают: их не выбирают запросы (см. MODEL_COLUMNS).
+type Model = Omit<typeof equipmentModels.$inferSelect, 'photo' | 'photoMime'>
 type Instance = typeof gymEquipment.$inferSelect
 
 /**

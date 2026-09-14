@@ -11,6 +11,7 @@ import {
   reanchorRamp,
   snapKg,
 } from '@/lib/engine'
+import { MODEL_COLUMNS, photoUrl } from '@/lib/equipment/columns'
 import { resolveGrid } from './grid'
 import { daysSincePattern, lastSessionSets, painRecent, probeBaseKg, setupFor } from './queries'
 
@@ -32,6 +33,8 @@ export type ItemPlan = {
   current: SetPlan | null
   /** Остаток плана после текущего подхода — чтобы показать, что впереди. */
   upcoming: SetPlan[]
+  /** Адрес фото железки — свериться, та ли это машина. */
+  photoUrl: string | null
   /** Запомненные настройки железки. */
   setup: Record<string, string> | null
   setupNote: string | null
@@ -58,7 +61,7 @@ export async function buildItemPlan(args: {
   logged: LoggedRow[]
 }): Promise<ItemPlan | null> {
   const [exercise] = await db
-    .select({ ex: exercises, model: equipmentModels })
+    .select({ ex: exercises, model: MODEL_COLUMNS })
     .from(exercises)
     .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
     .where(and(eq(exercises.id, args.exerciseId), eq(exercises.userId, args.userId)))
@@ -103,6 +106,7 @@ export async function buildItemPlan(args: {
   const notes = [...prescription.notes]
   const base = {
     grid,
+    photoUrl: exercise.model.hasPhoto ? photoUrl(exercise.model) : null,
     prescription,
     repMin: args.repMin,
     repMax: args.repMax,
