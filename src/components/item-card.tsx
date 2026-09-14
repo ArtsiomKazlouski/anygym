@@ -52,11 +52,23 @@ const FEEDBACK_LABEL = {
   failed: 'не добил',
 } as const
 
-const FEEDBACK = [
+/** Рабочий подход: вопрос «сколько осталось в запасе» — от него растёт вес. */
+const FEEDBACK_WORKING = [
   { value: 'easy', label: 'Легко', hint: 'мог ещё 3+' },
   { value: 'on_target', label: 'В точку', hint: 'ещё 1–2' },
   { value: 'limit', label: 'На пределе', hint: 'без запаса' },
   { value: 'failed', label: 'Не добил', hint: 'меньше цели' },
+] as const
+
+/**
+ * Подводящий подход обязан быть лёгким — спрашивать про запас бессмысленно.
+ * Вопрос здесь один: идём к запланированному верху или срезаем. Подписи
+ * называют последствие, а не ощущение.
+ */
+const FEEDBACK_RAMP = [
+  { value: 'on_target', label: 'По плану', hint: 'идём к верху' },
+  { value: 'limit', label: 'Тяжелее, чем ждал', hint: 'верх срежем' },
+  { value: 'failed', label: 'Не добил', hint: 'верх отменяем' },
 ] as const
 
 export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTitle }: Props) {
@@ -280,8 +292,13 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
 
       {wantsFeedback ? (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            {FEEDBACK.map((f) => (
+          <p className="text-xs opacity-45">
+            {role === 'ramp'
+              ? 'Подводящий. Идём дальше по плану?'
+              : 'Сколько осталось в запасе?'}
+          </p>
+          <div className={role === 'ramp' ? 'flex flex-col gap-2' : 'grid grid-cols-2 gap-2'}>
+            {(role === 'ramp' ? FEEDBACK_RAMP : FEEDBACK_WORKING).map((f) => (
               <button
                 key={f.value}
                 type="submit"
@@ -289,17 +306,11 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
                 value={f.value}
                 className="rounded-2xl border border-black/15 px-3 py-3 text-left dark:border-white/20"
               >
-                <span className="block text-sm font-medium">{f.label}</span>
-                <span className="block text-xs opacity-50">{f.hint}</span>
+                <span className="text-sm font-medium">{f.label}</span>
+                <span className="ml-2 text-xs opacity-50">{f.hint}</span>
               </button>
             ))}
           </div>
-          {role === 'ramp' && (
-            <p className="text-xs opacity-45">
-              Это подводящий подход — в прогрессию он не идёт. Ответ нужен, чтобы понять, брать
-              ли запланированный верх.
-            </p>
-          )}
         </>
       ) : (
         <button
