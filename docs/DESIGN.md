@@ -23,8 +23,8 @@
 | Решение | Выбор |
 |---|---|
 | Главная работа | Подсказка веса, а не просто журнал |
-| Единица прогрессии | Модель оборудования (`equipment_model`), не зал |
-| Идентификация модели | Вручную, по фото, со связыванием между залами |
+| Единица прогрессии | Упражнение (`exercise`), не зал и не железка |
+| Идентификация железки | Вручную, со связыванием одной модели между залами |
 | Фидбек | Повторы + 4 кнопки (маппятся в RIR) |
 | Прогрессия | Двойная + авторегуляция между подходами |
 | Анти-травма | Память настроек тренажёра, флаг боли, откат за паузу |
@@ -66,58 +66,60 @@
 ## 4. Схема БД
 
 Всё, кроме `pattern`, изолировано по `user_id`. Схема multi-user с первого дня,
-доступ ограничен allowlist по email.
+доступ ограничен allowlist по email. Ниже — то, что реально лежит в базе после
+миграций `0000`–`0006`.
 
 ### 4.1 Пользователи и справочники
 
-    user(
-      id            uuid pk,
-      email         text unique not null,
-      name          text,
-      created_at    timestamptz default now()
-    )
+Таблицы входа (`auth_user`, `auth_account`, `auth_session`,
+`auth_verification_token`) заданы адаптером Auth.js и здесь не описываются.
+Префикс `auth_` нужен, чтобы сессия входа не путалась с сессией тренировки.
 
     pattern(
       code          text pk,
       title         text not null,
-      muscle_group  text not null
+      muscle_group  text not null,
+      position      int  not null default 0
     )
 
 ### 4.2 Оборудование
 
-`equipment_model` — личный каталог моделей. Одна запись = одна железка, которую
-пользователь узнаёт в лицо. Может стоять в нескольких залах.
+`equipment_model` — личный каталог железок. Одна запись = один предмет, который
+пользователь узнаёт в лицо. Может стоять в нескольких залах; паттерна у неё нет,
+движение — свойство упражнения (см. 4.3).
 
     equipment_model(
       id            uuid pk,
-      user_id       uuid fk -> user,
-      name          text not null,          -- "Technogym Selection Pro Chest Press"
+      user_id       uuid fk -> auth_user,
+      name          text not null,          -- "жим от груди Technogym, синий"
       brand         text,
       kind          enum('stack','plate_loaded','dumbbell','barbell','cable','bodyweight'),
-      pattern_code  text fk -> pattern,
-      units         enum('kg','lb') default 'kg',
-      step          numeric,                -- шаг дискретизации (stack/plate/cable)
+      units         enum('kg','lb') not null default 'kg',
+      step          numeric,                -- шаг прогрессии
+      ramp_step     numeric,                -- шаг подводящих, если грубее (см. 5.1)
       min_weight    numeric,
       max_weight    numeric,
-      ladder        numeric[],              -- явный ряд весов (dumbbell)
-      bar_weight    numeric,                -- вес грифа (barbell)
+      ladder        numeric[],              -- явный ряд весов (гантели)
+      bar_weight    numeric,                -- вес грифа (штанга)
       photo         bytea,                  -- WebP, длинная сторона <= 400px
       photo_mime    text,
       notes         text,
-      created_at    timestamptz,
-      updated_at    timestamptz
+      created_at    timestamptz not null,
+      updated_at    timestamptz not null
     )
-
-`gym_equipment` — экземпляр модели в конкретном зале. Здесь же переопределения:
-тот же модельный ряд бывает со стеком в фунтах, гантельный ряд у каждого зала свой.
 
     gym(
       id            uuid pk,
-      user_id       uuid fk -> user,
+      user_id       uuid fk -> auth_user,
       name          text not null,
       note          text,
-      created_at    timestamptz
+      is_active     boolean not null default true,
+      created_at    timestamptz not null
     )
+
+`gym_equipment` — экземпляр модели в конкретном зале и переопределения сетки:
+тот же модельный ряд бывает со стеком в фунтах, а гантельный ряд у каждого зала
+свой.
 
     gym_equipment(
       id                 uuid pk,
@@ -126,121 +128,150 @@
       location_note      text,              -- "у окна, второй ряд"
       units_override     enum('kg','lb'),
       step_override      numeric,
+      ramp_step_override numeric,
       min_override       numeric,
       max_override       numeric,
       ladder_override    numeric[],
-      is_active          boolean default true,
-      created_at         timestamptz,
+      is_active          boolean not null default true,
+      created_at         timestamptz not null,
       unique(gym_id, equipment_model_id)
     )
 
-`equipment_setup` — запомненные настройки. По умолчанию привязаны к модели (разметка
-сиденья одинакова на одинаковых железках), при необходимости переопределяются для
-конкретного экземпляра.
+`equipment_setup` — запомненные настройки. По умолчанию на модель (разметка
+сиденья одинакова на одинаковых железках), при необходимости переопределяются
+для экземпляра в конкретном зале.
 
     equipment_setup(
       id                 uuid pk,
-      user_id            uuid fk -> user,
+      user_id            uuid fk -> auth_user,
       equipment_model_id uuid fk -> equipment_model,
-      gym_equipment_id   uuid fk -> gym_equipment,   -- null = настройка на модель вообще
-      settings           jsonb,             -- {"seat":"4","back":"2","grip":"широкий"}
+      gym_equipment_id   uuid fk -> gym_equipment,   -- null = настройка на модель
+      settings           jsonb not null default '{}',
       note               text,
-      updated_at         timestamptz,
+      updated_at         timestamptz not null,
       unique(user_id, equipment_model_id, gym_equipment_id)
     )
 
-### 4.3 Шаблоны
+### 4.3 Упражнения
 
-Шаблон написан в терминах паттернов, а не железок — иначе он не переносится между залами.
+**Ключ прогрессии — упражнение, а не железка.** На одних и тех же гантелях
+делаются жим под 45°, жим под 30°, бицепс и молоточки; рабочие веса у них
+разные, и слипаться их истории не должны. По той же причине не нужно
+отдельно моделировать односторонние движения: «разгибание ног по одной» —
+просто другое упражнение со своим весом.
+
+    exercise(
+      id                  uuid pk,
+      user_id             uuid fk -> auth_user,
+      name                text not null,     -- "жим гантелей под наклоном 45°"
+      pattern_code        text not null fk -> pattern,
+      equipment_model_id  uuid not null fk -> equipment_model,
+      declared_working_kg numeric,           -- вес со слов пользователя (см. 5.3)
+      notes               text,
+      is_active           boolean not null default true,
+      created_at          timestamptz not null
+    )
+
+`declared_working_kg` — стартовая точка, пока истории нет. С первой записи
+история его вытесняет, перерыв больше 90 дней обнуляет.
+
+### 4.4 Шаблоны
+
+Пункт шаблона написан в терминах паттерна, а не железки — иначе он не
+переносится между залами.
 
     template(
       id          uuid pk,
-      user_id     uuid fk -> user,
-      name        text not null,            -- "Верх A"
-      is_active   boolean default true,
-      created_at  timestamptz
+      user_id     uuid fk -> auth_user,
+      name        text not null,
+      is_active   boolean not null default true,
+      created_at  timestamptz not null
     )
 
     template_item(
-      id                  uuid pk,
-      template_id         uuid fk -> template,
-      position            int not null,
-      pattern_code        text fk -> pattern,
-      preferred_model_id  uuid fk -> equipment_model,  -- привычная железка
-      excluded_model_ids  uuid[],           -- "никогда не предлагай мне этот кроссовер"
-      scheme              enum('straight','ramp') default 'straight',
-      sets                int default 3,          -- для straight
-      ramp_percents       numeric[],              -- для ramp: доли от верхнего веса
-      ramp_reps           int[],                  -- целевые повторы по ступеням
-      rep_min             int default 8,          -- диапазон рабочего (верхнего) подхода
-      rep_max             int default 12,
-      note                text
+      id                    uuid pk,
+      template_id           uuid fk -> template,
+      position              int not null,
+      pattern_code          text not null fk -> pattern,
+      preferred_exercise_id uuid fk -> exercise,      -- привычное упражнение
+      excluded_exercise_ids uuid[] not null default '{}',
+      scheme                enum('straight','ramp') not null default 'straight',
+      sets                  int not null default 3,   -- для straight
+      ramp_percents         numeric[],                -- для ramp: доли от верха
+      ramp_reps             int[],                    -- повторы по ступеням
+      rep_min               int not null default 8,   -- диапазон рабочего подхода
+      rep_max               int not null default 12,
+      note                  text
     )
 
-Список альтернатив не хранится явно: он вычисляется как «все `gym_equipment` текущего
-зала, чья модель имеет тот же `pattern_code`, минус `excluded_model_ids`».
-Порядок: `preferred_model_id` → остальные по убыванию объёма истории.
+Список альтернатив не хранится: он вычисляется как «все упражнения этого
+паттерна, чья железка есть в текущем зале», минус `excluded_exercise_ids`
+и минус те, у которых в этой же тренировке есть собственный пункт. Порядок:
+`preferred_exercise_id` → остальные по убыванию объёма истории.
 
-### 4.4 Тренировки
+### 4.5 Тренировки
 
-    session(
+    workout_session(
       id           uuid pk,
-      user_id      uuid fk -> user,
+      user_id      uuid fk -> auth_user,
       gym_id       uuid fk -> gym,
-      template_id  uuid fk -> template,     -- null = ad hoc тренировка
-      started_at   timestamptz,
-      ended_at     timestamptz,
+      template_id  uuid fk -> template,      -- null = тренировка без плана
+      started_at   timestamptz not null,
+      ended_at     timestamptz,              -- null = идёт прямо сейчас
       note         text
     )
 
     session_item(
       id                uuid pk,
-      session_id        uuid fk -> session,
-      position          int not null,       -- перестраивается при «занято»
-      template_item_id  uuid fk -> template_item,   -- null = добавлено на ходу
-      pattern_code      text fk -> pattern,
-      gym_equipment_id  uuid fk -> gym_equipment,   -- выбранная железка, null пока не выбрана
+      session_id        uuid fk -> workout_session,
+      position          int not null,        -- меняется при «занято»
+      template_item_id  uuid fk -> template_item,  -- null = добавлено на ходу
+      pattern_code      text not null fk -> pattern,
+      exercise_id       uuid fk -> exercise, -- null, пока не выбрано
       status            enum('pending','active','done','deferred','skipped'),
-      target_sets       int,
-      rep_min           int,
-      rep_max           int,
-      deferred_count    int default 0
+      target_sets       int not null,
+      extra_sets        int not null default 0,    -- добавленные на тренировке
+      rep_min           int not null,
+      rep_max           int not null,
+      deferred_count    int not null default 0
     )
 
     set_log(
       id                   uuid pk,
       session_item_id      uuid fk -> session_item,
       position             int not null,
-      kind                 enum('warmup','ramp','working'),
-      weight               numeric not null,   -- в единицах железки, как на стеке
-      units                enum('kg','lb'),
+      kind                 enum('warmup','ramp','working') not null default 'working',
+      weight               numeric not null,   -- как написано на стеке
+      units                enum('kg','lb') not null,
       weight_kg            numeric not null,   -- нормализовано, вся математика тут
       reps                 int,
-      feedback             enum('easy','on_target','limit','failed'),  -- null для warmup
-      pain_zone            text,               -- null если боли не было
-      prescribed_weight_kg numeric,            -- что предложило приложение
-      prescription_source  enum('history','probe','manual','deload','pain_backoff'),
-      logged_at            timestamptz
+      feedback             enum('easy','on_target','limit','failed'),
+      pain_zone            text,
+      prescribed_weight_kg numeric,            -- что предложил движок
+      prescription_source  enum('history','declared','probe','manual','deload','pain_backoff'),
+      logged_at            timestamptz not null
     )
 
-`prescribed_weight_kg` и `prescription_source` хранятся не для UI, а чтобы потом честно
-оценить, насколько движок угадывает — без них калибровать его будет нечем.
+`prescribed_weight_kg` и `prescription_source` хранятся не для интерфейса,
+а чтобы потом честно оценить, насколько движок угадывает.
 
-### 4.5 Производное состояние
+Удаление каскадное: тренировка уносит свои пункты, пункт — свои подходы.
+
+### 4.6 Производное состояние
 
 Отдельной таблицы состояния прогрессии нет, всё выводится из `set_log`:
 
-- **рабочий вес модели** = `weight_kg` последнего `working`-подхода по этой
-  `equipment_model`, **который не был провален**. Рост внутри сессии (50 → 55 по
-  фидбеку «легко») должен переноситься на следующий раз, а финальный проваленный
-  подход не должен опускать базу дважды — за него уже отвечает межсессионная
+- **рабочий вес упражнения** = `weight_kg` последнего `working`-подхода по этому
+  `exercise_id`, **который не был провален**. Рост внутри сессии (50 → 55
+  по фидбеку «легко») должен переноситься, а финальный проваленный подход
+  не должен опускать базу дважды — за него уже отвечает межсессионная
   прогрессия из 5.4;
-- **дата последней работы на паттерн** = максимальный `logged_at` среди `working`-подходов,
-  чья модель имеет этот `pattern_code`;
-- **заморозка по боли** = был ли `pain_zone` в последних двух сессиях на этой модели.
+- **дата последней работы на паттерн** = максимальный `logged_at` среди
+  `working`-подходов, чей `session_item.pattern_code` совпадает;
+- **заморозка по боли** = был ли `pain_zone` в последних двух сессиях
+  на этом упражнении.
 
-Если это окажется медленным — материализуем позже; на объёмах одного человека (порядка
-десятков тысяч подходов за годы) индексов достаточно.
+Подводящие подходы (`kind = 'ramp'`) и разминка в прогрессии не участвуют.
 
 ## 5. Движок веса
 
@@ -275,6 +306,17 @@
 Она срабатывает только если опорный вес не лежит на текущей сетке — история пришла
 с экземпляра с другим шагом или в других единицах.
 
+**Грубый шаг для подводящих.** Шаг отвечает за две разные задачи: точность прибавки
+при прогрессии и округление подводящих подходов. Рабочему весу точность нужна,
+подводящему — нет: вешать 82.5 ради разминки значит возиться с блинами по 1.25
+на каждой стороне. Поэтому у модели есть `ramp_step`; подводящие и разминка
+округляются по нему, рабочий вес — по обычному `step`. У штанги это даёт
+20, 60, 80, 90 и верх 102.5.
+
+**Список достижимых весов.** Из той же сетки строится барабан выбора веса в форме
+записи подхода: выбрать вес, которого на железке нет, невозможно в принципе.
+Если сетка не задана, остаётся ручной ввод.
+
 ### 5.2 Маппинг фидбека
 
 | Кнопка | Значение | RIR |
@@ -287,30 +329,33 @@
 ### 5.3 Назначение веса на первый рабочий подход упражнения
 
     1. База
-       a. Есть история по этой equipment_model:
-             W = рабочий вес модели
+       a. Есть история по этому упражнению:
+             W = рабочий вес упражнения
              source = 'history'
           Применить межсессионную прогрессию (см. 5.4).
-       b. Истории по модели нет, но есть по другой модели того же паттерна:
-             base = рабочий вес модели с наибольшим объёмом истории
+       b. Истории нет, но есть заявленный вес (exercise.declared_working_kg):
+             W = заявленный вес
+             source = 'declared'
+       c. Ни истории, ни заявленного, но есть другое упражнение того же паттерна:
+             base = его рабочий вес
              W = 0.6 × base
              source = 'probe'
           UI показывает, от какой железки считается, и даёт сменить базу
           или покрутить процент.
-       c. Истории по паттерну нет вообще:
+       d. Ничего нет:
              ручной ввод, source = 'manual'
 
     2. Откат за паузу (только для ПЕРВОГО упражнения на данный ПАТТЕРН в сессии)
-       d = дни с последней работы на этот паттерн (не на эту модель)
+       d = дни с последней работы на этот паттерн (не на это упражнение)
        d <= 10  -> × 1.00
        11..21   -> × 0.95
        22..42   -> × 0.90
        43..90   -> × 0.85
-       d > 90   -> сброс: считать модель незнакомой, идти по ветке 1b
+       d > 90   -> сброс: заявленный вес устарел, идти по ветке 1c
        source = 'deload' если множитель < 1
 
     3. Откат за боль
-       Если в последних двух сессиях на этой модели был pain_zone:
+       Если в последних двух сессиях на этом упражнении был pain_zone:
              W = W × 0.9, source = 'pain_backoff'
              UI показывает: "в прошлый раз была боль: <зона>"
        Межсессионный рост при этом заморожен (см. 5.4).
@@ -320,7 +365,7 @@
 
 ### 5.4 Межсессионная прогрессия
 
-Смотрим рабочие подходы прошлой сессии на этой модели:
+Смотрим рабочие подходы прошлой сессии по этому упражнению:
 
     все подходы достигли rep_max, ни одного 'limit'/'failed'  -> W += step
     'failed' в половине и более подходов                       -> W -= step
@@ -398,51 +443,6 @@
 мертво. В прогрессии подводящие всё равно не участвуют — она смотрит только на
 `kind = 'working'`.
 
-## 6. Примеры «вход → выход»
-
-**Пример 1. Знакомая железка, штатный рост.**
-Жим в тренажёре Technogym, диапазон 8–12, шаг 5 кг.
-Прошлая сессия: 50×12 easy, 50×12 on_target, 50×12 on_target. Пауза 4 дня.
-→ Все подходы на rep_max, без limit/failed → W = 55. Откат не применяется.
-→ Разминка (первое упражнение на грудь): 30 кг × 8–10.
-→ Подсказка: **55 кг, цель 8–12**. После первого подхода 55×9 on_target → второй тоже 55.
-
-**Пример 2. Незнакомая модель в новом зале.**
-Тяга верхнего блока, модели нет в истории. Есть история по `vertical_pull` на
-другом тренажёре: рабочий 60 кг. Шаг нового — 5 кг.
-→ W = 0.6 × 60 = 36 → round вниз = 35.
-→ Подсказка: **35 кг — разведка, база: «тяга верхнего блока, зал Б, 60 кг».
-Сделай 8 и отметь, как было.**
-Результат 35×8 easy → второй подход 40. Снова easy → 45. on_target → рабочий найден.
-
-**Пример 3. Пауза 30 дней.**
-Жим ногами, рабочий 120 кг, шаг 10 кг, последняя работа на `squat` 30 дней назад.
-→ Множитель 0.90 → 108 → ближайшая ступень = 110. Плюс дополнительный разминочный подход.
-→ Подсказка: **110 кг (−10% после перерыва 30 дней), цель 8–12.**
-Первый подход 110×12 easy → второй возвращается к **120**, не к 120+10.
-
-**Пример 4. Боль.**
-Сведение, 40 кг, второй подход отмечен болью в плече.
-→ Упражнение предлагается завершить. Прогрессия по модели заморожена.
-→ Следующая сессия: 40 × 0.9 = 36 → round вниз = 35, с предупреждением
-«в прошлый раз была боль: плечо». Рост не возобновится, пока две сессии подряд
-не пройдут без боли.
-
-## 7. Автомат сессии
-
-    pending  --выбрал железку-->  active  --записал все подходы-->  done
-    active   --"занято"-------->  deferred   (position -> в конец, deferred_count++)
-    deferred --вернулся-------->  active
-    deferred --сессия закрыта-->  skipped    (попадает в "давно не делал")
-
-Пункт со статусом `deferred` предлагается повторно при закрытии тренировки.
-
-## 8. Границы
-
-Приложение — личный журнал и калькулятор нагрузки. Флаг боли собирает историю для
-тебя и для разговора с врачом; это не диагностика. Приложение не заменяет тренера
-и не оценивает технику.
-
 ### 5.8 Интервал между подходами
 
 Таймера отдыха нет намеренно: пользователь следит за отдыхом по часам и
@@ -457,11 +457,61 @@
 сыплются от подхода к подходу: из литературы это самый доказанный рычаг
 (см. раздел 12).
 
+## 6. Примеры «вход → выход»
+
+**Пример 1. Знакомая железка, штатный рост.**
+Жим в тренажёре Technogym, диапазон 8–12, шаг 5 кг.
+Прошлая сессия: 50×12 easy, 50×12 on_target, 50×12 on_target. Пауза 4 дня.
+→ Все подходы на rep_max, без limit/failed → W = 55. Откат не применяется.
+→ Разминка (первое упражнение на грудь): 30 кг × 8–10.
+→ Подсказка: **55 кг, цель 8–12**. После первого подхода 55×9 on_target → второй тоже 55.
+
+**Пример 2. Незнакомое упражнение в новом зале.**
+Тяга верхнего блока, истории нет. Есть история по `vertical_pull` на
+другом тренажёре: рабочий 60 кг. Шаг нового — 5 кг.
+→ W = 0.6 × 60 = 36 → round вниз = 35.
+→ Подсказка: **35 кг — разведка, база: «тяга верхнего блока, зал Б, 60 кг».
+Сделай 8 и отметь, как было.**
+Результат 35×8 easy → второй подход 40. Снова easy → 45. on_target → рабочий найден.
+
+**Пример 3. Пауза 30 дней.**
+Жим ногами, рабочий 120 кг, шаг 10 кг, последняя работа на `squat` 30 дней назад.
+→ Множитель 0.90 → 108 → ближайшая ступень = 110. Плюс дополнительный разминочный подход.
+→ Подсказка: **110 кг (−10% после перерыва 30 дней), цель 8–12.**
+Первый подход 110×12 easy → второй возвращается к **120**, не к 120+10.
+
+**Пример 4. Боль.**
+Сведение, 40 кг, второй подход отмечен болью в плече.
+→ Упражнение предлагается завершить. Прогрессия по нему заморожена.
+→ Следующая сессия: 40 × 0.9 = 36 → round вниз = 35, с предупреждением
+«в прошлый раз была боль: плечо». Рост не возобновится, пока две сессии подряд
+не пройдут без боли.
+
+## 7. Автомат сессии
+
+    pending  --выбрал упражнение-->  active  --записал все подходы-->  done
+    active   --"занято"-------->  deferred   (position -> в конец, deferred_count++)
+    deferred --вернулся-------->  active
+    deferred --сессия закрыта-->  skipped    (попадает в "давно не делал")
+
+Пункт со статусом `deferred` предлагается повторно при закрытии тренировки.
+
+## 8. Границы
+
+Приложение — личный журнал и калькулятор нагрузки. Флаг боли собирает историю для
+тебя и для разговора с врачом; это не диагностика. Приложение не заменяет тренера
+и не оценивает технику.
+
+
 ## 9. Не входит в v1
 
 Графики и аналитика прогресса (только плоская история), офлайн-режим, распознавание
 тренажёров по фото, контроль недельного объёма по мышечным группам, раскладка блинов
 для штанги, маршрут по залу с учётом занятости, таймер отдыха.
+
+**Фото тренажёра пока не реализовано.** Колонки `photo` и `photo_mime` в схеме есть,
+экрана загрузки нет. Нужно для узнавания железки глазами при связывании моделей
+между залами; требует сжатия картинки в браузере перед отправкой.
 
 ## 10. Где это в коде
 
@@ -469,8 +519,12 @@
 |---|---|
 | 3. Паттерны | `src/lib/patterns.ts` |
 | 4. Схема | `src/db/schema.ts`, миграции в `drizzle/` |
-| 5.1 Дискретизация | `src/lib/engine/weights.ts` |
-| 5.2–5.6 Движок | `src/lib/engine/prescribe.ts` |
+| 5.1 Дискретизация, сетка весов | `src/lib/engine/weights.ts` |
+| 5.2–5.8 Движок | `src/lib/engine/prescribe.ts` |
+| Сбор истории для движка | `src/lib/session/queries.ts`, `plan.ts` |
+| Действия тренировки | `src/lib/session/actions.ts` |
+| Каталог залов и железа | `src/lib/equipment/`, экраны `src/app/gyms`, `src/app/equipment` |
+| Короткая запись ряда весов | `src/lib/equipment/ladder.ts` |
 | 6. Примеры | `src/lib/engine/engine.test.mts` — каждый пример это тест |
 
 ## 11. Открытые вопросы
