@@ -12,7 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env.local scripts/seed-patterns.mts",
-    "test": "node --test src/lib/engine/engine.test.mts",
+    "test": "node --test \"src/**/*.test.mts\"",
     "db:seed:monday": "tsx --env-file=.env.local scripts/seed-monday.mts",
     "dry-run": "tsx --env-file=.env.local scripts/dry-run.mts"
   },

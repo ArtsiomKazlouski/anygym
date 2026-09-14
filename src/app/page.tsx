@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth, signOut } from '@/auth'
+import { AppNav } from '@/components/app-nav'
 import { BuildFooter } from '@/components/build-footer'
 import { SessionRow } from '@/components/session-list'
 import { startSession } from '@/lib/session/actions'
@@ -29,8 +31,8 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-8 p-5">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">anygym</h1>
+      <header className="flex items-center justify-between gap-3">
+        <AppNav current="/" />
         <form
           action={async () => {
             'use server'
@@ -45,7 +47,11 @@ export default async function Home() {
 
       {gyms.length === 0 ? (
         <p className="text-sm opacity-60">
-          Залов пока нет. Залей инвентарь командой <code>npm run db:seed:monday</code>.
+          Залов пока нет —{' '}
+          <Link href="/gyms" className="underline underline-offset-4">
+            заведи первый
+          </Link>
+          .
         </p>
       ) : (
         <form action={startSession} className="flex flex-col gap-4">
