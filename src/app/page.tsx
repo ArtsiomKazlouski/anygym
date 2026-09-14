@@ -1,8 +1,15 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth, signOut } from '@/auth'
+import { BuildFooter } from '@/components/build-footer'
 import { startSession } from '@/lib/session/actions'
 import { activeSession, listGyms, listTemplates } from '@/lib/session/queries'
+
+/** На Vercel — короткий хэш коммита, локально — «локально». */
+function buildVersion(): string {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA
+  return sha ? sha.slice(0, 7) : 'локально'
+}
 
 export default async function Home() {
   const session = await auth()
@@ -85,6 +92,8 @@ export default async function Home() {
           </button>
         </form>
       )}
+
+      <BuildFooter version={buildVersion()} />
     </main>
   )
 }
