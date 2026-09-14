@@ -134,6 +134,7 @@ export async function buildItemPlan(args: {
           grid,
           pain: last.painZone != null,
           reps: last.reps,
+          repMin: args.repMin,
           repMax: args.repMax,
         })
       : null
@@ -197,6 +198,7 @@ export async function buildItemPlan(args: {
         preDeloadKg: prescription.preDeloadKg,
         pain: previous.painZone != null,
         reps: previous.reps,
+        repMin: args.repMin,
         repMax: args.repMax,
       })
       if (nx.note) notes.push(nx.note)

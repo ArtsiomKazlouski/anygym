@@ -7,6 +7,7 @@ import {
   nextSet,
   prescribe,
   capRamp,
+  isFailed,
   reanchorRamp,
   type LoggedSet,
   type Prescription,
@@ -75,6 +76,7 @@ describe('межсессионная прогрессия', () => {
     assert.equal(
       interSessionDelta(
         sets([50, 12, 'easy'], [50, 12, 'on_target'], [50, 12, 'on_target']),
+        8,
         12,
       ),
       1,
@@ -82,11 +84,17 @@ describe('межсессионная прогрессия', () => {
   })
 
   it('не растит, если хоть один подход был на пределе', () => {
-    assert.equal(interSessionDelta(sets([50, 12, 'on_target'], [50, 12, 'limit']), 12), 0)
+    assert.equal(interSessionDelta(sets([50, 12, 'on_target'], [50, 12, 'limit']), 8, 12), 0)
   })
 
   it('снижает, когда провалена половина подходов', () => {
-    assert.equal(interSessionDelta(sets([50, 6, 'failed'], [50, 8, 'on_target']), 12), -1)
+    // Провал выводится из повторов: 6 при цели от 8 с ответом «на пределе».
+    assert.equal(interSessionDelta(sets([50, 6, 'limit'], [50, 8, 'on_target']), 8, 12), -1)
+  })
+
+  it('не считает провалом недобор, если подход был лёгким', () => {
+    // Прервался по своим причинам — вес тут ни при чём.
+    assert.equal(interSessionDelta(sets([50, 6, 'easy'], [50, 11, 'on_target']), 8, 12), 0)
   })
 
   it('переносит рост, случившийся внутри сессии', () => {
@@ -607,5 +615,51 @@ describe('повторы перевешивают кнопку', () => {
   it('без данных о повторах ведёт себя как раньше', () => {
     const r = nextSet({ currentKg: 50, feedback: 'on_target', grid })
     assert.equal(r.weight.weight, 50)
+  })
+})
+
+describe('провал выводится из повторов, а не из кнопки', () => {
+  const grid = stack(5)
+
+  it('недобор с ответом «на пределе» снимает ступень', () => {
+    const r = nextSet({
+      currentKg: 50,
+      feedback: 'limit',
+      grid,
+      reps: 7,
+      repMin: 10,
+      repMax: 12,
+    })
+    assert.equal(r.weight.weight, 45)
+    assert.ok(r.note)
+  })
+
+  it('недобор с ответом «легко» вес не трогает вниз', () => {
+    // Прервался сам: очередь, время, конец тренировки. Вес тут ни при чём.
+    const r = nextSet({
+      currentKg: 50,
+      feedback: 'easy',
+      grid,
+      reps: 7,
+      repMin: 10,
+      repMax: 12,
+    })
+    assert.equal(r.weight.weight, 55)
+  })
+
+  it('недобор с ответом «в точку» тоже снимает ступень', () => {
+    const r = nextSet({
+      currentKg: 50,
+      feedback: 'on_target',
+      grid,
+      reps: 7,
+      repMin: 10,
+      repMax: 12,
+    })
+    assert.equal(r.weight.weight, 45)
+  })
+
+  it('старая запись с кнопкой «не добил» по-прежнему читается', () => {
+    assert.equal(isFailed({ weightKg: 50, reps: 12, feedback: 'failed' }, 10), true)
   })
 })

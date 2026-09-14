@@ -133,16 +133,35 @@ export function baseFromLastSession(sets: LoggedSet[]): number | null {
   return sets[sets.length - 1].weightKg
 }
 
+/**
+ * Подход считается проваленным, если повторов вышло меньше нижней границы
+ * диапазона.
+ *
+ * Отдельной кнопки «не добил» нет намеренно: она дублировала бы число повторов.
+ * Кнопка отвечает на то, чего число сказать не может — чего подход стоил.
+ * Поэтому «8 повторов при цели 10-12 + на пределе» это провал, а те же
+ * 8 повторов с ответом «легко» — просто ты прервался по своим причинам,
+ * и вес тут ни при чём.
+ */
+export function isFailed(set: LoggedSet, repMin: number): boolean {
+  if (set.feedback === 'failed') return true // данные, записанные старой формой
+  return set.reps < repMin && set.feedback !== 'easy'
+}
+
 /** Межсессионная прогрессия (раздел 5.4): -1 вниз, 0 держим, +1 вверх. */
-export function interSessionDelta(sets: LoggedSet[], repMax: number): -1 | 0 | 1 {
+export function interSessionDelta(
+  sets: LoggedSet[],
+  repMin: number,
+  repMax: number,
+): -1 | 0 | 1 {
   if (sets.length === 0) return 0
 
-  const reachedMax = sets.every((s) => s.reps >= repMax)
-  const anyHard = sets.some((s) => s.feedback === 'limit' || s.feedback === 'failed')
-  if (reachedMax && !anyHard) return 1
-
-  const failed = sets.filter((s) => s.feedback === 'failed').length
+  const failed = sets.filter((s) => isFailed(s, repMin)).length
   if (failed * 2 >= sets.length) return -1
+
+  const reachedMax = sets.every((s) => s.reps >= repMax)
+  const anyHard = sets.some((s) => s.feedback === 'limit' || failed > 0)
+  if (reachedMax && !anyHard) return 1
 
   return 0
 }
@@ -217,7 +236,7 @@ export function prescribe(ctx: PrescribeContext): Prescription {
 
   if (historyBase != null) {
     source = 'history'
-    const delta = interSessionDelta(ctx.lastSessionSets, repMax)
+    const delta = interSessionDelta(ctx.lastSessionSets, ctx.repMin, repMax)
     if (delta === 1) {
       topKg = stepKg(historyBase, grid, 1).weightKg
       notes.push('Прошлый раз закрыл верх диапазона — прибавка на ступень')
@@ -315,17 +334,27 @@ export function nextSet(args: {
   grid: WeightGrid
   preDeloadKg?: number | null
   pain?: boolean
-  /** Сколько повторов вышло и где верх диапазона — вместе они перевешивают кнопку. */
+  /** Повторы и границы диапазона: вместе они перевешивают кнопку. */
   reps?: number | null
+  repMin?: number | null
   repMax?: number | null
 }): NextSet {
-  const { currentKg, feedback, grid, preDeloadKg, pain, reps, repMax } = args
+  const { currentKg, feedback, grid, preDeloadKg, pain, reps, repMin, repMax } = args
 
   if (pain) {
     return {
       action: 'stop_or_reduce',
       weight: stepKg(stepKg(currentKg, grid, -1).weightKg, grid, -1),
       note: 'Была боль — упражнение лучше завершить; если продолжаешь, то отсюда',
+    }
+  }
+
+  // Провал выводится из повторов, а не из отдельной кнопки.
+  if (reps != null && repMin != null && reps < repMin && feedback !== 'easy') {
+    return {
+      action: 'continue',
+      weight: stepKg(currentKg, grid, -1),
+      note: `Повторов вышло ${reps} при цели от ${repMin} — минус ступень`,
     }
   }
 

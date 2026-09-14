@@ -57,7 +57,6 @@ const FEEDBACK_WORKING = [
   { value: 'easy', label: 'Легко', hint: 'мог ещё 3+' },
   { value: 'on_target', label: 'В точку', hint: 'ещё 1–2' },
   { value: 'limit', label: 'На пределе', hint: 'без запаса' },
-  { value: 'failed', label: 'Не добил', hint: 'меньше цели' },
 ] as const
 
 /**
@@ -68,7 +67,6 @@ const FEEDBACK_WORKING = [
 const FEEDBACK_RAMP = [
   { value: 'on_target', label: 'По плану', hint: 'идём к верху' },
   { value: 'limit', label: 'Тяжелее, чем ждал', hint: 'верх срежем' },
-  { value: 'failed', label: 'Не добил', hint: 'верх отменяем' },
 ] as const
 
 export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTitle }: Props) {
@@ -297,7 +295,7 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
               ? 'Подводящий. Идём дальше по плану?'
               : 'Сколько осталось в запасе?'}
           </p>
-          <div className={role === 'ramp' ? 'flex flex-col gap-2' : 'grid grid-cols-2 gap-2'}>
+          <div className="flex flex-col gap-2">
             {(role === 'ramp' ? FEEDBACK_RAMP : FEEDBACK_WORKING).map((f) => (
               <button
                 key={f.value}
