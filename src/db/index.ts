@@ -39,18 +39,37 @@ function connectionString(): string {
 }
 
 /**
- * Подключение создаётся при первом обращении, а не при импорте модуля.
+ * Настоящий клиент. Создаётся при первом вызове, а не при импорте модуля:
+ * сборка Next импортирует роуты, чтобы собрать о них данные, и не должна
+ * зависеть от боевого секрета.
  *
- * Сборка Next импортирует роуты, чтобы собрать о них данные. Если клиент
- * создавался на верхнем уровне, сборка падала при отсутствующем или битом
- * DATABASE_URL — хотя база нужна только в рантайме. Сборка не должна зависеть
- * от боевого секрета.
+ * Нужен там, где объект базы отдаётся библиотеке, которая его типизирует:
+ * DrizzleAdapter определяет диалект по типу объекта, и прокси эту проверку
+ * не проходит.
+ */
+export function getDb(): Db {
+  instance ??= drizzle(neon(connectionString()), { schema })
+  return instance
+}
+
+/**
+ * Прокси для прикладного кода: `db.select()` читается привычнее, чем
+ * `getDb().select()`, а отложенность сохраняется.
+ *
+ * Трап getPrototypeOf обязателен — без него `instanceof` видит пустой объект,
+ * и библиотеки, проверяющие тип, падают.
  */
 export const db = new Proxy({} as Db, {
   get(_target, prop) {
-    instance ??= drizzle(neon(connectionString()), { schema })
-    const value = Reflect.get(instance, prop, instance)
-    return typeof value === 'function' ? value.bind(instance) : value
+    const real = getDb()
+    const value = Reflect.get(real, prop, real)
+    return typeof value === 'function' ? value.bind(real) : value
+  },
+  getPrototypeOf() {
+    return Object.getPrototypeOf(getDb())
+  },
+  has(_target, prop) {
+    return prop in getDb()
   },
 })
 
