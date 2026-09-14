@@ -1,6 +1,7 @@
 'use client'
 
 import { deleteSession } from '@/lib/session/actions'
+import { SubmitButton } from '@/components/submit-button'
 
 /**
  * Удаление необратимо и стирает подходы, по которым движок считает прогрессию.
@@ -23,12 +24,9 @@ export function DeleteSession({ sessionId, summary }: { sessionId: string; summa
       className="pt-6 text-center"
     >
       <input type="hidden" name="sessionId" value={sessionId} />
-      <button
-        type="submit"
-        className="text-xs text-red-600/70 hover:text-red-600 dark:text-red-400/70 dark:hover:text-red-400"
-      >
+      <SubmitButton className="text-xs text-red-600/70 hover:text-red-600 dark:text-red-400/70 dark:hover:text-red-400">
         Удалить тренировку
-      </button>
+      </SubmitButton>
     </form>
   )
 }

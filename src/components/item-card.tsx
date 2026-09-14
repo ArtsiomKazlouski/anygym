@@ -1,6 +1,7 @@
 import type { setLogs } from '@/db/schema'
 import { gridOptions } from '@/lib/engine'
 import type { ItemPlan } from '@/lib/session/plan'
+import { SubmitButton } from '@/components/submit-button'
 import {
   addSet,
   deferItem,
@@ -116,12 +117,9 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           {item.status === 'deferred' && (
             <form action={resumeItem}>
               <input type="hidden" name="itemId" value={item.id} />
-              <button
-                type="submit"
-                className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20"
-              >
+              <SubmitButton className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
                 Вернуться
-              </button>
+              </SubmitButton>
             </form>
           )}
         </div>
@@ -139,21 +137,15 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         <div className="flex shrink-0 gap-2">
           <form action={deferItem}>
             <input type="hidden" name="itemId" value={item.id} />
-            <button
-              type="submit"
-              className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20"
-            >
+            <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
               {logged.length > 0 ? 'Прервали' : 'Занято'}
-            </button>
+            </SubmitButton>
           </form>
           <form action={skipItem}>
             <input type="hidden" name="itemId" value={item.id} />
-            <button
-              type="submit"
-              className="rounded-full border border-black/15 px-3 py-1.5 text-xs opacity-60 dark:border-white/20"
-            >
+            <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs opacity-60 dark:border-white/20">
               Пропустить
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>
@@ -168,9 +160,8 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           {alternatives.map((a) => {
             const chosen = a.id === item.exerciseId
             return (
-              <button
+              <SubmitButton
                 key={a.id}
-                type="submit"
                 name="exerciseId"
                 value={a.id}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
@@ -183,7 +174,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
                 <span className="ml-1 opacity-50">
                   {a.volume > 0 ? `· ${a.volume}` : '· нет данных'}
                 </span>
-              </button>
+              </SubmitButton>
             )
           })}
         </form>
@@ -259,13 +250,12 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
                 </span>
                 <form action={deleteSet}>
                   <input type="hidden" name="setId" value={s.id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     aria-label="Удалить подход"
                     className="shrink-0 rounded-full border border-black/15 px-2.5 py-1 text-xs opacity-50 hover:opacity-100 dark:border-white/20"
                   >
                     Удалить
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             )
@@ -302,21 +292,15 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
             <div className="flex gap-2">
               <form action={addSet} className="flex-1">
                 <input type="hidden" name="itemId" value={item.id} />
-                <button
-                  type="submit"
-                  className="w-full rounded-2xl border border-black/15 py-4 text-base dark:border-white/20"
-                >
+                <SubmitButton className="w-full rounded-2xl border border-black/15 py-4 text-base dark:border-white/20">
                   Ещё подход
-                </button>
+                </SubmitButton>
               </form>
               <form action={finishItem} className="flex-1">
                 <input type="hidden" name="itemId" value={item.id} />
-                <button
-                  type="submit"
-                  className="w-full rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black"
-                >
+                <SubmitButton className="w-full rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black">
                   Дальше
-                </button>
+                </SubmitButton>
               </form>
             </div>
           )}
@@ -425,26 +409,22 @@ function SetForm({
           </p>
           <div className="flex flex-col gap-2">
             {(role === 'ramp' ? FEEDBACK_RAMP : FEEDBACK_WORKING).map((f) => (
-              <button
+              <SubmitButton
                 key={f.value}
-                type="submit"
                 name="feedback"
                 value={f.value}
                 className="rounded-2xl border border-black/15 px-3 py-3 text-left dark:border-white/20"
               >
                 <span className="text-sm font-medium">{f.label}</span>
                 <span className="ml-2 text-xs opacity-50">{f.hint}</span>
-              </button>
+              </SubmitButton>
             ))}
           </div>
         </>
       ) : (
-        <button
-          type="submit"
-          className="rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black"
-        >
+        <SubmitButton className="rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black">
           Записал
-        </button>
+        </SubmitButton>
       )}
 
       <details className="text-xs">

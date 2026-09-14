@@ -4,6 +4,7 @@ import { BuildFooter } from '@/components/build-footer'
 import { SessionRow } from '@/components/session-list'
 import { startSession } from '@/lib/session/actions'
 import { listGyms, listTemplates, recentSessions } from '@/lib/session/queries'
+import { SubmitButton } from '@/components/submit-button'
 
 /** На Vercel — короткий хэш коммита, локально — «локально». */
 function buildVersion(): string {
@@ -36,9 +37,7 @@ export default async function Home() {
             await signOut({ redirectTo: '/signin' })
           }}
         >
-          <button type="submit" className="text-sm opacity-50 hover:opacity-100">
-            Выйти
-          </button>
+          <SubmitButton className="text-sm opacity-50 hover:opacity-100">Выйти</SubmitButton>
         </form>
       </header>
 
@@ -81,12 +80,9 @@ export default async function Home() {
             </select>
           </label>
 
-          <button
-            type="submit"
-            className="rounded-2xl bg-black px-5 py-4 text-base font-medium text-white dark:bg-white dark:text-black"
-          >
+          <SubmitButton className="rounded-2xl bg-black px-5 py-4 text-base font-medium text-white dark:bg-white dark:text-black">
             {latest && latest.endedAt == null ? 'Начать новую' : 'Начать тренировку'}
-          </button>
+          </SubmitButton>
         </form>
       )}
 

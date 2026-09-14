@@ -1,4 +1,5 @@
 import { signIn } from '@/auth'
+import { SubmitButton } from '@/components/submit-button'
 
 export default function SignInPage() {
   return (
@@ -16,12 +17,9 @@ export default function SignInPage() {
           await signIn('google', { redirectTo: '/' })
         }}
       >
-        <button
-          type="submit"
-          className="rounded-full border border-black/10 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-        >
+        <SubmitButton className="rounded-full border border-black/10 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10">
           Войти через Google
-        </button>
+        </SubmitButton>
       </form>
     </main>
   )

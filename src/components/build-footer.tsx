@@ -14,7 +14,7 @@ export function BuildFooter({ version }: { version: string }) {
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="underline-offset-4 hover:underline"
+        className="underline-offset-4 transition duration-75 hover:underline active:scale-95"
       >
         сборка {version} · обновить
       </button>

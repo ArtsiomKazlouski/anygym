@@ -1,4 +1,5 @@
 import { finishSession } from '@/lib/session/actions'
+import { SubmitButton } from '@/components/submit-button'
 
 export function SessionHeader({
   session,
@@ -18,12 +19,9 @@ export function SessionHeader({
       </div>
       <form action={finishSession}>
         <input type="hidden" name="sessionId" value={session.id} />
-        <button
-          type="submit"
-          className="rounded-full border border-black/15 px-4 py-2 text-sm dark:border-white/20"
-        >
+        <SubmitButton className="rounded-full border border-black/15 px-4 py-2 text-sm dark:border-white/20">
           Завершить
-        </button>
+        </SubmitButton>
       </form>
     </header>
   )
