@@ -290,7 +290,15 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
       )}
 
       {plan && (plan.current || plan.manualEntry) ? (
+        /*
+          key обязателен. Поля формы неуправляемые, а defaultValue применяется
+          только при первом появлении элемента в DOM: после серверного действия
+          React видит тот же select на том же месте и оставляет старое значение.
+          Лента плана при этом перерисовывается — и поле расходится с подсказкой
+          ровно на один подход. Ключ заставляет пересоздать поля.
+        */
         <SetForm
+          key={`${logged.length}-${plan.current?.weight.weight ?? 'manual'}`}
           itemId={item.id}
           plan={plan}
           lastReps={logged[logged.length - 1]?.reps ?? null}

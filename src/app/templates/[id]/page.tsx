@@ -91,6 +91,16 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
 
               <div className="mt-2">
                 <TemplateItemForm
+                  key={JSON.stringify([
+                    item.preferredExerciseId,
+                    item.scheme,
+                    item.sets,
+                    item.repMin,
+                    item.repMax,
+                    item.rampPercents,
+                    item.rampReps,
+                    item.note,
+                  ])}
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}

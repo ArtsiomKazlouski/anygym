@@ -53,7 +53,12 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
           То, что ты каждый раз выставляешь на глаз. Неверная высота сиденья — это не
           неудобство, а плечо.
         </p>
-        <form action={saveSetup} className="flex flex-col gap-3">
+        {/* key — чтобы поля подхватили сохранённое: см. комментарий в item-card. */}
+        <form
+          key={data.setup?.updatedAt.toISOString() ?? 'new'}
+          action={saveSetup}
+          className="flex flex-col gap-3"
+        >
           <input type="hidden" name="modelId" value={data.model.id} />
           <div className="grid grid-cols-2 gap-3">
             {SETUP_FIELDS.map((key) => (
@@ -136,6 +141,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
           выбора. Пустое поле означает «не знаю» и оставляет ручной ввод.
         </p>
         <EquipmentForm
+          key={data.model.updatedAt.toISOString()}
           action={updateEquipment}
           model={data.model}
           submitLabel="Сохранить тренажёр"
