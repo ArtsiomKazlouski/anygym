@@ -238,6 +238,26 @@ export async function finishItem(formData: FormData) {
   revalidatePath(`/session/${item.sessionId}`)
 }
 
+/**
+ * Удаляет тренировку вместе с подходами — внешние ключи каскадные.
+ *
+ * Действие необратимое и меняет будущие подсказки: движок считает прогрессию
+ * по записанным подходам, и удаление сессии убирает их из истории.
+ */
+export async function deleteSession(formData: FormData) {
+  const userId = await requireUser()
+  const sessionId = String(formData.get('sessionId') ?? '')
+
+  const [found] = await db
+    .select({ id: workoutSessions.id })
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+  if (!found) throw new Error('Тренировка не найдена')
+
+  await db.delete(workoutSessions).where(eq(workoutSessions.id, sessionId))
+  redirect('/')
+}
+
 export async function finishSession(formData: FormData) {
   const userId = await requireUser()
   const sessionId = String(formData.get('sessionId') ?? '')

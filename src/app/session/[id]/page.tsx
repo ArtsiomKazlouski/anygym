@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
+import { DeleteSession } from '@/components/delete-session'
 import { ItemCard } from '@/components/item-card'
 import { SessionHeader } from '@/components/session-header'
 import { muscleGroupOf } from '@/lib/patterns'
@@ -107,6 +108,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       {cards.map((c) => (
         <ItemCard key={c.row.item.id} {...c} />
       ))}
+
+      <DeleteSession
+        sessionId={data.session.id}
+        summary={`${new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(data.session.startedAt)}, подходов ${[...data.logsByItem.values()].flat().length}`}
+      />
     </main>
   )
 }
