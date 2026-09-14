@@ -9,6 +9,7 @@ import {
   nextSet,
   prescribe,
   reanchorRamp,
+  snapKg,
 } from '@/lib/engine'
 import { resolveGrid } from './grid'
 import { daysSincePattern, lastSessionSets, painRecent, probeBaseKg, setupFor } from './queries'
@@ -18,7 +19,14 @@ type LoggedRow = typeof setLogs.$inferSelect
 export type ItemPlan = {
   grid: WeightGrid
   prescription: Prescription
-  /** Подход, который нужно сделать прямо сейчас. null = упражнение закончено. */
+  repMin: number
+  repMax: number
+  /**
+   * Веса нет ни в истории, ни со слов — первый подход вводится руками.
+   * Отличается от «упражнение закончено», где current тоже null.
+   */
+  manualEntry: boolean
+  /** Подход, который нужно сделать прямо сейчас. null = делать нечего. */
   current: SetPlan | null
   /** Остаток плана после текущего подхода — чтобы показать, что впереди. */
   upcoming: SetPlan[]
@@ -91,6 +99,58 @@ export async function buildItemPlan(args: {
   })
 
   const notes = [...prescription.notes]
+  const base = {
+    grid,
+    prescription,
+    repMin: args.repMin,
+    repMax: args.repMax,
+    setup: setup?.settings ?? null,
+    setupNote: setup?.note ?? null,
+  }
+
+  // Веса нет ни в истории, ни со слов. Первый подход называешь ты, дальше
+  // план достраивается от того, что реально поставил.
+  if (!prescription.top) {
+    const workingDone = args.logged.filter((l) => l.kind === 'working').length
+    const left = Math.max(0, args.sets - workingDone)
+    const last = args.logged[args.logged.length - 1]
+
+    if (!last) {
+      return { ...base, manualEntry: true, current: null, upcoming: [], notes }
+    }
+    if (left === 0) {
+      return { ...base, manualEntry: false, current: null, upcoming: [], notes }
+    }
+
+    // Подсказка «поставь вес сам» относится только к первому подходу —
+    // дальше ведём от того, что ты реально поставил.
+    notes.length = 0
+    notes.push('Веду от веса, который ты поставил в первом подходе')
+
+    const nx = last.feedback
+      ? nextSet({
+          currentKg: last.weightKg,
+          feedback: last.feedback,
+          grid,
+          pain: last.painZone != null,
+        })
+      : null
+    if (nx?.note) notes.push(nx.note)
+
+    const next: SetPlan = {
+      role: 'working',
+      weight: nx?.weight ?? snapKg(last.weightKg, grid, 'nearest'),
+      reps: [args.repMin, args.repMax],
+    }
+    return {
+      ...base,
+      manualEntry: false,
+      current: next,
+      upcoming: Array.from({ length: left - 1 }, () => next),
+      notes,
+    }
+  }
+
   const done = args.logged.length
   const previous = done > 0 ? args.logged[done - 1] : null
   const previousPlan = done > 0 ? prescription.sets[done - 1] : null
@@ -145,12 +205,10 @@ export async function buildItemPlan(args: {
   }
 
   return {
-    grid,
-    prescription,
+    ...base,
+    manualEntry: false,
     current: remaining[0] ?? null,
     upcoming: remaining.slice(1),
-    setup: setup?.settings ?? null,
-    setupNote: setup?.note ?? null,
     notes,
   }
 }

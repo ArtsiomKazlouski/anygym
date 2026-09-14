@@ -138,7 +138,7 @@ export async function logSet(formData: FormData) {
     // В прогрессии они всё равно не участвуют — та смотрит только на kind='working'.
     feedback: kind !== 'warmup' && feedbackRaw ? (feedbackRaw as never) : null,
     painZone,
-    prescribedWeightKg: prescribed != null ? Number(prescribed) : null,
+    prescribedWeightKg: prescribed ? Number(prescribed) : null,
     prescriptionSource: source ? (source as never) : null,
   })
 

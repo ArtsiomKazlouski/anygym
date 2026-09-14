@@ -185,12 +185,16 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         </ul>
       )}
 
-      {plan?.current ? (
+      {plan && (plan.current || plan.manualEntry) ? (
         <SetForm itemId={item.id} plan={plan} />
       ) : (
         <div className="mt-4 flex flex-col gap-3">
           <p className="text-sm opacity-60">
-            {item.exerciseId ? 'Упражнение закрыто.' : 'Выбери, на чём делаешь.'}
+            {!item.exerciseId
+              ? 'Выбери, на чём делаешь.'
+              : logged.length > 0
+                ? `Все подходы записаны — ${logged.length} из ${item.targetSets}.`
+                : 'Подходов в плане нет.'}
           </p>
           {item.exerciseId && (
             <form action={finishItem}>
@@ -216,31 +220,42 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
 }
 
 function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
-  const current = plan.current!
+  const current = plan.current
+  const role = current?.role ?? 'working'
   // Фидбек спрашиваем и на подводящих: по нему срезается остаток рампы.
   // На разминке не спрашиваем — она ни на что не влияет.
-  const wantsFeedback = current.role !== 'warmup'
-  const [repLo, repHi] = current.reps
+  const wantsFeedback = role !== 'warmup'
+  const [repLo, repHi] = current?.reps ?? [plan.repMin, plan.repMax]
   const repTarget = repLo === repHi ? `${repLo}` : `${repLo}–${repHi}`
+  const units = current?.weight.units ?? plan.grid.units
 
   return (
     <form action={logSet} className="mt-4 flex flex-col gap-3">
       <input type="hidden" name="itemId" value={itemId} />
-      <input type="hidden" name="kind" value={current.role} />
-      <input type="hidden" name="prescribedKg" value={current.weight.weightKg} />
+      <input type="hidden" name="kind" value={role} />
+      <input type="hidden" name="prescribedKg" value={current?.weight.weightKg ?? ''} />
       <input type="hidden" name="source" value={plan.prescription.source} />
+
+      {plan.manualEntry && (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs opacity-80">
+          Веса по этому упражнению я ещё не знаю. Поставь сам и запиши подход — дальше буду
+          вести сам, и в следующий раз вспомню.
+        </p>
+      )}
 
       <div className="flex items-end gap-3">
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-xs opacity-50">
-            Вес, {current.weight.units} · {ROLE_LABEL[current.role]}
+            Вес, {units} · {ROLE_LABEL[role]}
           </span>
           <input
             name="weight"
             type="number"
             inputMode="decimal"
             step="0.5"
-            defaultValue={current.weight.weight}
+            required
+            placeholder="—"
+            defaultValue={current?.weight.weight ?? ''}
             className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl font-semibold tabular-nums dark:border-white/20"
           />
         </label>
@@ -272,7 +287,7 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
               </button>
             ))}
           </div>
-          {current.role === 'ramp' && (
+          {role === 'ramp' && (
             <p className="text-xs opacity-45">
               Это подводящий подход — в прогрессию он не идёт. Ответ нужен, чтобы понять, брать
               ли запланированный верх.
