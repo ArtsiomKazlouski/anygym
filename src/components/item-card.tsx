@@ -124,7 +124,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
             type="submit"
             className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20"
           >
-            Занято
+            {logged.length > 0 ? 'Прервали' : 'Занято'}
           </button>
         </form>
       </div>
@@ -169,22 +169,34 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {plan.planned.map((s, i) => {
-              const state = i < logged.length ? 'done' : i === logged.length ? 'now' : 'next'
+              const actual = logged[i]
+              const state = actual ? 'done' : i === logged.length ? 'now' : 'next'
               const mark = s.role === 'warmup' ? '°' : s.role === 'ramp' ? '~' : ''
+              const isRamp = plan.prescription.scheme === 'ramp'
+
+              // Сделанный подход показывает факт. Запланированный — ориентир:
+              // в прямой схеме это один и тот же вес, повторять его цифрами
+              // в каждой плашке нечего, цель уже написана в шапке.
+              const text = actual
+                ? `${actual.weight}×${actual.reps}`
+                : isRamp
+                  ? `${s.weight.weight}×${s.reps[0] === s.reps[1] ? s.reps[0] : s.reps.join('–')}`
+                  : `${s.weight.weight}`
+
               return (
                 <span
                   key={`${i}-${s.weight.weight}`}
                   className={
                     'rounded-lg px-2 py-1 text-xs tabular-nums ' +
                     (state === 'done'
-                      ? 'bg-black/5 opacity-35 line-through dark:bg-white/10'
+                      ? 'bg-black/5 opacity-45 dark:bg-white/10'
                       : state === 'now'
                         ? 'bg-black font-semibold text-white dark:bg-white dark:text-black'
-                        : 'border border-black/15 dark:border-white/20')
+                        : 'border border-black/15 opacity-60 dark:border-white/20')
                   }
                 >
                   {mark}
-                  {s.weight.weight}×{s.reps[0] === s.reps[1] ? s.reps[0] : s.reps.join('–')}
+                  {text}
                 </span>
               )
             })}
@@ -239,7 +251,11 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
       )}
 
       {plan && (plan.current || plan.manualEntry) ? (
-        <SetForm itemId={item.id} plan={plan} />
+        <SetForm
+          itemId={item.id}
+          plan={plan}
+          lastReps={logged[logged.length - 1]?.reps ?? null}
+        />
       ) : (
         <div className="mt-4 flex flex-col gap-3">
           <p className="text-sm opacity-60">
@@ -277,7 +293,15 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
   )
 }
 
-function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
+function SetForm({
+  itemId,
+  plan,
+  lastReps,
+}: {
+  itemId: string
+  plan: ItemPlan
+  lastReps: number | null
+}) {
   const current = plan.current
   const role = current?.role ?? 'working'
   // Фидбек спрашиваем и на подводящих: по нему срезается остаток рампы.
@@ -323,7 +347,8 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
             name="reps"
             type="number"
             inputMode="numeric"
-            defaultValue={repHi}
+            // Сколько вышло в прошлом подходе — вероятнее, чем верх диапазона.
+            defaultValue={lastReps ?? repHi}
             className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl font-semibold tabular-nums dark:border-white/20"
           />
         </label>
