@@ -1,9 +1,9 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth, signOut } from '@/auth'
 import { BuildFooter } from '@/components/build-footer'
+import { SessionRow } from '@/components/session-list'
 import { startSession } from '@/lib/session/actions'
-import { activeSession, listGyms, listTemplates } from '@/lib/session/queries'
+import { listGyms, listTemplates, recentSessions } from '@/lib/session/queries'
 
 /** На Vercel — короткий хэш коммита, локально — «локально». */
 function buildVersion(): string {
@@ -16,11 +16,15 @@ export default async function Home() {
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [gyms, templates, active] = await Promise.all([
+  const [gyms, templates, sessions] = await Promise.all([
     listGyms(userId),
     listTemplates(userId),
-    activeSession(userId),
+    recentSessions(userId),
   ])
+
+  // Последняя тренировка доступна всегда, а не только пока она не завершена:
+  // раньше кнопка исчезала после «Завершить», и попасть в неё было нечем.
+  const [latest, ...earlier] = sessions
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-8 p-5">
@@ -38,14 +42,7 @@ export default async function Home() {
         </form>
       </header>
 
-      {active && (
-        <Link
-          href={`/session/${active.id}`}
-          className="rounded-2xl bg-emerald-600 px-5 py-4 text-center text-base font-medium text-white"
-        >
-          Продолжить тренировку
-        </Link>
-      )}
+      {latest && <SessionRow row={latest} primary />}
 
       {gyms.length === 0 ? (
         <p className="text-sm opacity-60">
@@ -88,9 +85,20 @@ export default async function Home() {
             type="submit"
             className="rounded-2xl bg-black px-5 py-4 text-base font-medium text-white dark:bg-white dark:text-black"
           >
-            {active ? 'Начать новую' : 'Начать тренировку'}
+            {latest && latest.endedAt == null ? 'Начать новую' : 'Начать тренировку'}
           </button>
         </form>
+      )}
+
+      {earlier.length > 0 && (
+        <section>
+          <h2 className="mb-1 text-xs uppercase tracking-wide opacity-40">История</h2>
+          <div className="flex flex-col">
+            {earlier.map((row) => (
+              <SessionRow key={row.id} row={row} />
+            ))}
+          </div>
+        </section>
       )}
 
       <BuildFooter version={buildVersion()} />

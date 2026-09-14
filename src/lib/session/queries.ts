@@ -43,6 +43,33 @@ export async function activeSession(userId: string) {
   return row ?? null
 }
 
+/**
+ * Последние тренировки с названием зала и числом записанных подходов.
+ * Незавершённая — та, у которой нет endedAt; она же идёт первой по времени.
+ */
+export async function recentSessions(userId: string, limit = 10) {
+  return db
+    .select({
+      id: workoutSessions.id,
+      startedAt: workoutSessions.startedAt,
+      endedAt: workoutSessions.endedAt,
+      gymName: gyms.name,
+      templateName: templates.name,
+      sets: sql<number>`(
+        select count(*)::int from ${setLogs}
+        join ${sessionItems} on ${sessionItems.id} = ${setLogs.sessionItemId}
+        where ${sessionItems.sessionId} = ${workoutSessions.id}
+          and ${setLogs.kind} = 'working'
+      )`,
+    })
+    .from(workoutSessions)
+    .innerJoin(gyms, eq(gyms.id, workoutSessions.gymId))
+    .leftJoin(templates, eq(templates.id, workoutSessions.templateId))
+    .where(eq(workoutSessions.userId, userId))
+    .orderBy(desc(workoutSessions.startedAt))
+    .limit(limit)
+}
+
 /** Упражнения, доступные в этом зале под заданный паттерн. */
 export async function alternativesFor(
   userId: string,
