@@ -315,8 +315,11 @@ export function nextSet(args: {
   grid: WeightGrid
   preDeloadKg?: number | null
   pain?: boolean
+  /** Сколько повторов вышло и где верх диапазона — вместе они перевешивают кнопку. */
+  reps?: number | null
+  repMax?: number | null
 }): NextSet {
-  const { currentKg, feedback, grid, preDeloadKg, pain } = args
+  const { currentKg, feedback, grid, preDeloadKg, pain, reps, repMax } = args
 
   if (pain) {
     return {
@@ -337,8 +340,19 @@ export function nextSet(args: {
       }
       return { action: 'continue', weight: stepKg(currentKg, grid, 1) }
     }
-    case 'on_target':
+    case 'on_target': {
+      // Двойная прогрессия: закрыл верх диапазона — вес растёт, что бы
+      // ни говорила кнопка. Пятнадцать повторов при цели двенадцать это
+      // не «в точку», это лёгкий вес.
+      if (reps != null && repMax != null && reps >= repMax) {
+        return {
+          action: 'continue',
+          weight: stepKg(currentKg, grid, 1),
+          note: `Повторы закрыты (${reps} при цели до ${repMax}) — вес растёт`,
+        }
+      }
       return { action: 'continue', weight: snapKg(currentKg, grid, 'nearest') }
+    }
     case 'limit':
       return {
         action: 'continue',

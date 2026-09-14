@@ -133,6 +133,8 @@ export async function buildItemPlan(args: {
           feedback: last.feedback,
           grid,
           pain: last.painZone != null,
+          reps: last.reps,
+          repMax: args.repMax,
         })
       : null
     if (nx?.note) notes.push(nx.note)
@@ -194,6 +196,8 @@ export async function buildItemPlan(args: {
         grid,
         preDeloadKg: prescription.preDeloadKg,
         pain: previous.painZone != null,
+        reps: previous.reps,
+        repMax: args.repMax,
       })
       if (nx.note) notes.push(nx.note)
       if (nx.action === 'stop_or_reduce') {

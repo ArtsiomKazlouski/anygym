@@ -576,3 +576,36 @@ describe('пересчёт рампы под фактический вес', () 
     )
   })
 })
+
+describe('повторы перевешивают кнопку', () => {
+  const grid = stack(5)
+
+  it('«в точку» с закрытым верхом диапазона растит вес', () => {
+    // Реальный случай: 50 × 15 при цели 10-12, нажато «в точку».
+    // Пятнадцать повторов при цели двенадцать — это лёгкий вес, а не «в точку».
+    const r = nextSet({ currentKg: 50, feedback: 'on_target', grid, reps: 15, repMax: 12 })
+    assert.equal(r.weight.weight, 55)
+    assert.ok(r.note)
+  })
+
+  it('«в точку» ровно на верхе диапазона тоже растит', () => {
+    const r = nextSet({ currentKg: 50, feedback: 'on_target', grid, reps: 12, repMax: 12 })
+    assert.equal(r.weight.weight, 55)
+  })
+
+  it('«в точку» внутри диапазона держит вес', () => {
+    const r = nextSet({ currentKg: 50, feedback: 'on_target', grid, reps: 11, repMax: 12 })
+    assert.equal(r.weight.weight, 50)
+  })
+
+  it('«на пределе» держит вес даже при закрытом верхе', () => {
+    // Запаса не было — значит вес по делу, просто диапазон подобран широко.
+    const r = nextSet({ currentKg: 50, feedback: 'limit', grid, reps: 15, repMax: 12 })
+    assert.equal(r.weight.weight, 50)
+  })
+
+  it('без данных о повторах ведёт себя как раньше', () => {
+    const r = nextSet({ currentKg: 50, feedback: 'on_target', grid })
+    assert.equal(r.weight.weight, 50)
+  })
+})

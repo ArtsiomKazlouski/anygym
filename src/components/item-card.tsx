@@ -45,6 +45,13 @@ const ROLE_LABEL = {
   working: 'рабочий',
 } as const
 
+const FEEDBACK_LABEL = {
+  easy: 'легко',
+  on_target: 'в точку',
+  limit: 'на пределе',
+  failed: 'не добил',
+} as const
+
 const FEEDBACK = [
   { value: 'easy', label: 'Легко', hint: 'мог ещё 3+' },
   { value: 'on_target', label: 'В точку', hint: 'ещё 1–2' },
@@ -157,7 +164,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
               </span>
               <span className="shrink-0 tabular-nums opacity-70">{s.reps} повт</span>
               <span className="min-w-0 flex-1 truncate text-xs opacity-45">
-                {ROLE_LABEL[s.kind]}
+                {s.feedback ? FEEDBACK_LABEL[s.feedback] : ROLE_LABEL[s.kind]}
                 {s.painZone && ' · боль'}
               </span>
               <form action={deleteSet}>
@@ -259,8 +266,8 @@ function SetForm({ itemId, plan }: { itemId: string; plan: ItemPlan }) {
             className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl font-semibold tabular-nums dark:border-white/20"
           />
         </label>
-        <label className="flex w-28 flex-col gap-1">
-          <span className="text-xs opacity-50">Повторы · цель {repTarget}</span>
+        <label className="flex w-32 flex-col gap-1">
+          <span className="whitespace-nowrap text-xs opacity-50">Повторы · {repTarget}</span>
           <input
             name="reps"
             type="number"
