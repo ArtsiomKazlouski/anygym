@@ -8,6 +8,7 @@ import {
   logSet,
   pickExercise,
   resumeItem,
+  skipItem,
 } from '@/lib/session/actions'
 
 type Logged = typeof setLogs.$inferSelect
@@ -134,15 +135,26 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           <div className="text-xs uppercase tracking-wide opacity-40">{patternTitle}</div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         </div>
-        <form action={deferItem}>
-          <input type="hidden" name="itemId" value={item.id} />
-          <button
-            type="submit"
-            className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20"
-          >
-            {logged.length > 0 ? 'Прервали' : 'Занято'}
-          </button>
-        </form>
+        <div className="flex shrink-0 gap-2">
+          <form action={deferItem}>
+            <input type="hidden" name="itemId" value={item.id} />
+            <button
+              type="submit"
+              className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20"
+            >
+              {logged.length > 0 ? 'Прервали' : 'Занято'}
+            </button>
+          </form>
+          <form action={skipItem}>
+            <input type="hidden" name="itemId" value={item.id} />
+            <button
+              type="submit"
+              className="rounded-full border border-black/15 px-3 py-1.5 text-xs opacity-60 dark:border-white/20"
+            >
+              Пропустить
+            </button>
+          </form>
+        </div>
       </div>
 
       {row.templateItem?.note && (
@@ -348,7 +360,7 @@ function SetForm({
       <div className="flex items-end gap-3">
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-xs opacity-50">
-            Вес, {units} · {ROLE_LABEL[role]}
+            Вес, {units} · <span className="whitespace-nowrap">{ROLE_LABEL[role]}</span>
           </span>
           <input
             name="weight"
@@ -362,7 +374,9 @@ function SetForm({
           />
         </label>
         <label className="flex w-32 flex-col gap-1">
-          <span className="whitespace-nowrap text-xs opacity-50">Повторы · {repTarget}</span>
+          <span className="text-xs opacity-50">
+            Повторы · цель <span className="whitespace-nowrap">{repTarget}</span>
+          </span>
           <input
             name="reps"
             type="number"

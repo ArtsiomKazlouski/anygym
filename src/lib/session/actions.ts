@@ -190,6 +190,19 @@ export async function addSet(formData: FormData) {
   revalidatePath(`/session/${item.sessionId}`)
 }
 
+/**
+ * Пропустить: сегодня этого не будет. В отличие от «занято», пункт не уезжает
+ * в конец и возвращаться к нему не предложат — но записанные подходы
+ * сохраняются, если упражнение было начато.
+ */
+export async function skipItem(formData: FormData) {
+  const userId = await requireUser()
+  const itemId = String(formData.get('itemId') ?? '')
+  const { item } = await ownedItem(userId, itemId)
+  await db.update(sessionItems).set({ status: 'skipped' }).where(eq(sessionItems.id, item.id))
+  revalidatePath(`/session/${item.sessionId}`)
+}
+
 /** Занято: пункт уезжает в конец, к нему предложим вернуться позже. */
 export async function deferItem(formData: FormData) {
   const userId = await requireUser()
