@@ -58,6 +58,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
         </p>
         <PhotoUpload
           modelId={data.model.id}
+          kind={data.model.kind}
           currentUrl={data.model.hasPhoto ? photoUrl(data.model) : null}
         />
       </section>

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { EquipmentForm } from '@/components/equipment-form'
 import { GymEquipmentOverride } from '@/components/gym-equipment-override'
+import { EquipmentThumb } from '@/components/equipment-icon'
 import { photoUrl } from '@/lib/equipment/columns'
 import { SubmitButton } from '@/components/submit-button'
 import { createEquipment, linkEquipment, unlinkEquipment } from '@/lib/equipment/actions'
@@ -41,13 +42,15 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
               className="rounded-2xl border border-black/10 px-3 py-2 dark:border-white/15"
             >
               <div className="flex items-center gap-2">
-                {model.hasPhoto && (
+                {model.hasPhoto ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={photoUrl(model)}
                     alt=""
                     className="size-12 shrink-0 rounded-lg object-cover"
                   />
+                ) : (
+                  <EquipmentThumb kind={model.kind} className="size-12 shrink-0" />
                 )}
                 <Link
                   href={`/equipment/${model.id}`}
@@ -109,9 +112,7 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
                     className="aspect-square w-full rounded-lg object-cover"
                   />
                 ) : (
-                  <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-black/5 text-xs opacity-35 dark:bg-white/10">
-                    без фото
-                  </span>
+                  <EquipmentThumb kind={m.kind} className="aspect-square w-full" />
                 )}
                 <span className="line-clamp-2 text-xs">{m.name}</span>
               </SubmitButton>

@@ -56,6 +56,7 @@ export async function gymWithEquipment(userId: string, gymId: string) {
       .select({
         id: equipmentModels.id,
         name: equipmentModels.name,
+        kind: equipmentModels.kind,
         notes: equipmentModels.notes,
         updatedAt: equipmentModels.updatedAt,
         hasPhoto: sql<boolean>`${equipmentModels.photo} is not null`,

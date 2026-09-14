@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { EquipmentThumb } from '@/components/equipment-icon'
 import { SubmitButton } from '@/components/submit-button'
 import { deletePhoto, savePhoto } from '@/lib/equipment/actions'
+import type { equipmentModels } from '@/db/schema'
 
 const MAX_SIDE = 400
 const QUALITY = 0.8
@@ -38,9 +40,11 @@ async function toCompactDataUrl(file: File): Promise<string> {
 
 export function PhotoUpload({
   modelId,
+  kind,
   currentUrl,
 }: {
   modelId: string
+  kind: (typeof equipmentModels.$inferSelect)['kind']
   currentUrl: string | null
 }) {
   const [preview, setPreview] = useState<string | null>(null)
@@ -67,13 +71,15 @@ export function PhotoUpload({
 
   return (
     <div className="flex flex-col gap-3">
-      {shown && (
+      {shown ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={shown}
           alt="Фото тренажёра"
           className="w-full rounded-2xl border border-black/10 object-cover dark:border-white/15"
         />
+      ) : (
+        <EquipmentThumb kind={kind} className="h-32 w-full rounded-2xl" />
       )}
 
       <form action={savePhoto} className="flex flex-col gap-2">
