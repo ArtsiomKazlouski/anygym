@@ -67,14 +67,18 @@ Vercel собирает по `git push` в `main` — GitHub Actions не нуж
 2. **Переменные окружения** проекта (Settings → Environment Variables),
    для всех сред:
 
-   | Переменная | Откуда взять |
-   |---|---|
-   | `DATABASE_URL` | из `.env.local` — та же база Neon |
-   | `DATABASE_URL_UNPOOLED` | из `.env.local` |
-   | `AUTH_SECRET` | тот же, что локально (см. ниже) |
-   | `AUTH_GOOGLE_ID` | из `.env.local` |
-   | `AUTH_GOOGLE_SECRET` | из `.env.local` |
-   | `ALLOWED_EMAILS` | почты через запятую |
+   | Переменная | Кто читает | Откуда взять |
+   |---|---|---|
+   | `DATABASE_URL` | приложение | из `.env.local` — та же база Neon |
+   | `AUTH_SECRET` | Auth.js | тот же, что локально (см. ниже) |
+   | `AUTH_GOOGLE_ID` | Auth.js | из `.env.local` |
+   | `AUTH_GOOGLE_SECRET` | Auth.js | из `.env.local` |
+   | `ALLOWED_EMAILS` | проверка входа | почты через запятую |
+
+   Больше ничего не нужно. `DATABASE_URL_UNPOOLED` читает только
+   `drizzle.config.ts`, то есть миграции, а они запускаются локально.
+   `NEON_BRANCH` не используется нигде — это метаданные `neon link` для
+   собственных нужд CLI. Обе переменные на Vercel мёртвые.
 
    `AUTH_SECRET` — ключ подписи сессионной куки. Кто им владеет, тот может
    выписать себе валидную сессию в обход Google: allowlist проверяется только
