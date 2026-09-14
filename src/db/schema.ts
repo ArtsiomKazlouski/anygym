@@ -53,7 +53,15 @@ export const sessionItemStatus = pgEnum('session_item_status', [
   'skipped',
 ])
 
-export const setKind = pgEnum('set_kind', ['warmup', 'working'])
+export const setKind = pgEnum('set_kind', ['warmup', 'ramp', 'working'])
+
+/**
+ * Схема подходов пункта плана.
+ *  straight — один рабочий вес на все подходы;
+ *  ramp     — восходящая пирамида к верхнему подходу; прогрессия висит
+ *             только на верхнем, подводящие считаются от него процентами.
+ */
+export const setScheme = pgEnum('set_scheme', ['straight', 'ramp'])
 
 /** Четыре кнопки после подхода. Маппинг в RIR — в движке, не в БД. */
 export const setFeedback = pgEnum('set_feedback', [
@@ -311,7 +319,13 @@ export const templateItems = pgTable(
     }),
     /** «Никогда не предлагай мне этот кроссовер». */
     excludedModelIds: uuid('excluded_model_ids').array().notNull().default([]),
+    scheme: setScheme('scheme').notNull().default('straight'),
+    /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
     sets: integer('sets').notNull().default(3),
+    /** Доли от верхнего веса по возрастанию, последняя = 1. Только для рампы. */
+    rampPercents: numeric('ramp_percents', { precision: 4, scale: 3, mode: 'number' }).array(),
+    /** Целевые повторы на каждой ступени рампы. Короче списка — хвост берёт repMax. */
+    rampReps: integer('ramp_reps').array(),
     repMin: integer('rep_min').notNull().default(8),
     repMax: integer('rep_max').notNull().default(12),
     note: text('note'),

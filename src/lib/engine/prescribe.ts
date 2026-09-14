@@ -1,7 +1,7 @@
 /**
  * Движок веса (docs/DESIGN.md, раздел 5).
  *
- * Функции чистые: на вход — факты из истории, на выход — назначение.
+ * Функции чистые: на вход — факты из истории, на выход — план подходов.
  * Никаких обращений к БД, поэтому всё поведение проверяется тестами.
  */
 
@@ -10,6 +10,17 @@ import { type SnappedWeight, type WeightGrid, snapKg, stepKg } from './weights.t
 export type SetFeedback = 'easy' | 'on_target' | 'limit' | 'failed'
 
 export type PrescriptionSource = 'history' | 'probe' | 'manual' | 'deload' | 'pain_backoff'
+
+/**
+ * Схема подходов.
+ *  straight — один рабочий вес на все подходы, корректируется фидбеком;
+ *  ramp     — восходящая пирамида к верхнему подходу. Прогрессия висит
+ *             только на верхнем: подводящие считаются от него процентами.
+ */
+export type Scheme = 'straight' | 'ramp'
+
+/** 'ramp' — подводящий подход, в прогрессии не участвует, как и разминка. */
+export type SetRole = 'warmup' | 'ramp' | 'working'
 
 export type LoggedSet = {
   weightKg: number
@@ -34,9 +45,17 @@ export const DELOAD_TABLE: readonly { upToDays: number; factor: number }[] = [
 
 export type PrescribeContext = {
   grid: WeightGrid
+  scheme: Scheme
+  /** Диапазон повторов рабочего (для рампы — верхнего) подхода. */
   repMin: number
   repMax: number
-  /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ, по порядку. Пусто = модель незнакома. */
+  /** Сколько рабочих подходов. Для рампы игнорируется: длину задаёт rampPercents. */
+  sets?: number
+  /** Доли от верхнего веса, по возрастанию, последняя = 1. Только для рампы. */
+  rampPercents?: number[]
+  /** Целевые повторы на каждой ступени рампы. Короче списка — хвост берёт repMax. */
+  rampReps?: number[]
+  /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ. Подводящие и разминку не передавать. */
   lastSessionSets: LoggedSet[]
   /**
    * Дней с последней работы на ЭТОТ ПАТТЕРН, включая текущую сессию.
@@ -52,34 +71,30 @@ export type PrescribeContext = {
   firstForMuscleGroup: boolean
 }
 
-export type Warmup = {
-  weight: number
-  weightKg: number
-  units: WeightGrid['units']
+export type SetPlan = {
+  role: SetRole
+  weight: SnappedWeight
   reps: readonly [number, number]
 }
 
 export type Prescription = {
-  /** null — истории нет вообще, вес вводится руками. */
-  working: SnappedWeight | null
-  repMin: number
-  repMax: number
+  scheme: Scheme
+  /** Верхний (рабочий) вес — на нём висит прогрессия. null = истории нет. */
+  top: SnappedWeight | null
+  /** Полный план подходов по порядку, включая разминку и подводящие. */
+  sets: SetPlan[]
   source: PrescriptionSource
   /**
    * Вес до отката за паузу. Если первый подход получит 'easy',
    * следующий возвращается сюда, а не растёт на ступень от откаченного.
    */
   preDeloadKg: number | null
-  warmup: Warmup | null
   /** Человекочитаемые пояснения — их показывает UI, чтобы подсказка не выглядела магией. */
   notes: string[]
 }
 
-/** Множитель отката за паузу. null во втором поле = полный сброс в разведку. */
-export function deloadFactor(days: number | null): {
-  factor: number
-  reset: boolean
-} {
+/** Множитель отката за паузу. reset = полный сброс в разведку. */
+export function deloadFactor(days: number | null): { factor: number; reset: boolean } {
   if (days == null) return { factor: 1, reset: false }
   if (days > RESET_AFTER_DAYS) return { factor: 1, reset: true }
   for (const row of DELOAD_TABLE) {
@@ -118,32 +133,89 @@ export function interSessionDelta(sets: LoggedSet[], repMax: number): -1 | 0 | 1
   return 0
 }
 
-export function prescribe(ctx: PrescribeContext): Prescription {
+/** Строит план подходов от верхнего веса. */
+function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boolean): SetPlan[] {
   const { grid, repMin, repMax } = ctx
+  const plan: SetPlan[] = []
+
+  if (ctx.scheme === 'ramp') {
+    const percents = (ctx.rampPercents ?? [1]).slice().sort((a, b) => a - b)
+    const reps = ctx.rampReps ?? []
+
+    let previousKg = -Infinity
+    percents.forEach((p, i) => {
+      const isTop = i === percents.length - 1
+      const weight = isTop ? top : snapKg(top.weightKg * p, grid, 'nearest')
+
+      // На грубой сетке соседние доли схлопываются: 0.85 и 0.9 от 100 при шаге 20
+      // дают 80 и 100. Подводящая ступень обязана быть строго выше предыдущей
+      // и строго ниже верхней — иначе это не подводка, а повтор.
+      if (!isTop && (weight.weightKg <= previousKg || weight.weightKg >= top.weightKg)) return
+      previousKg = weight.weightKg
+
+      const target = reps[i]
+      plan.push({
+        role: isTop ? 'working' : 'ramp',
+        weight,
+        reps: isTop ? [repMin, repMax] : [target ?? repMax, target ?? repMax],
+      })
+    })
+
+    // Рампа обычно сама себе разминка. Отдельный подход нужен только если
+    // она начинается высоко — а это бывает на гантелях с редким рядом.
+    const first = plan[0]
+    if (extraWarmup && first && first.weight.weightKg > top.weightKg * WARMUP_FACTOR) {
+      plan.unshift({
+        role: 'warmup',
+        weight: snapKg(top.weightKg * WARMUP_FACTOR, grid, 'down'),
+        reps: WARMUP_REPS,
+      })
+    }
+
+    return plan
+  }
+
+  if (extraWarmup) {
+    plan.push({
+      role: 'warmup',
+      weight: snapKg(top.weightKg * WARMUP_FACTOR, grid, 'down'),
+      reps: WARMUP_REPS,
+    })
+  }
+
+  for (let i = 0; i < (ctx.sets ?? 3); i++) {
+    plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
+  }
+
+  return plan
+}
+
+export function prescribe(ctx: PrescribeContext): Prescription {
+  const { grid, repMax } = ctx
   const notes: string[] = []
 
   const { factor: pauseFactor, reset } = deloadFactor(ctx.daysSincePattern)
   const historyBase = reset ? null : baseFromLastSession(ctx.lastSessionSets)
 
   let source: PrescriptionSource
-  let weightKg: number | null
+  let topKg: number
 
   if (historyBase != null) {
     source = 'history'
     const delta = interSessionDelta(ctx.lastSessionSets, repMax)
     if (delta === 1) {
-      weightKg = stepKg(historyBase, grid, 1).weightKg
+      topKg = stepKg(historyBase, grid, 1).weightKg
       notes.push('Прошлый раз закрыл верх диапазона — прибавка на ступень')
     } else if (delta === -1) {
-      weightKg = stepKg(historyBase, grid, -1).weightKg
+      topKg = stepKg(historyBase, grid, -1).weightKg
       notes.push('Прошлый раз не добил — минус ступень')
     } else {
-      weightKg = historyBase
+      topKg = historyBase
       notes.push('Вес держим, растём в повторах')
     }
   } else if (ctx.probeBaseKg != null) {
     source = 'probe'
-    weightKg = ctx.probeBaseKg * PROBE_FACTOR
+    topKg = ctx.probeBaseKg * PROBE_FACTOR
     notes.push(
       reset
         ? `Перерыв больше ${RESET_AFTER_DAYS} дней — тренажёр считаем незнакомым, это разведка`
@@ -151,12 +223,11 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     )
   } else {
     return {
-      working: null,
-      repMin,
-      repMax,
+      scheme: ctx.scheme,
+      top: null,
+      sets: [],
       source: 'manual',
       preDeloadKg: null,
-      warmup: null,
       notes: ['Истории по этому движению нет — поставь вес сам, дальше подхвачу'],
     }
   }
@@ -164,17 +235,17 @@ export function prescribe(ctx: PrescribeContext): Prescription {
   // Откат за паузу — только поверх истории; разведка и так занижена.
   let preDeloadKg: number | null = null
   if (source === 'history' && pauseFactor < 1) {
-    preDeloadKg = weightKg
-    weightKg = weightKg * pauseFactor
+    preDeloadKg = topKg
+    topKg = topKg * pauseFactor
     source = 'deload'
     notes.push(
-      `Перерыв ${ctx.daysSincePattern} дн. — минус ${Math.round((1 - pauseFactor) * 100)}% на первый подход`,
+      `Перерыв ${ctx.daysSincePattern} дн. — минус ${Math.round((1 - pauseFactor) * 100)}% на верхний подход`,
     )
   }
 
   if (ctx.painRecent) {
-    if (preDeloadKg == null) preDeloadKg = weightKg
-    weightKg = weightKg * PAIN_BACKOFF_FACTOR
+    if (preDeloadKg == null) preDeloadKg = topKg
+    topKg = topKg * PAIN_BACKOFF_FACTOR
     source = 'pain_backoff'
     notes.push('В прошлый раз на этом движении была боль — рост заморожен, вес снижен')
   }
@@ -189,22 +260,25 @@ export function prescribe(ctx: PrescribeContext): Prescription {
   //
   // Ограничение сверху — страховка на случай, когда прежний вес не лежит на текущей
   // сетке (история пришла с экземпляра с другим шагом или в других единицах).
-  let working = snapKg(weightKg, grid, 'nearest')
-  if (preDeloadKg != null && working.weightKg > preDeloadKg) {
-    working = snapKg(weightKg, grid, 'down')
+  let top = snapKg(topKg, grid, 'nearest')
+  if (preDeloadKg != null && top.weightKg > preDeloadKg) {
+    top = snapKg(topKg, grid, 'down')
   }
 
   const needsExtraWarmup =
-    source === 'probe' || source === 'deload' || source === 'pain_backoff'
-  const warmup =
-    ctx.firstForMuscleGroup || needsExtraWarmup
-      ? (() => {
-          const w = snapKg(working.weightKg * WARMUP_FACTOR, grid, 'down')
-          return { ...w, reps: WARMUP_REPS }
-        })()
-      : null
+    ctx.firstForMuscleGroup ||
+    source === 'probe' ||
+    source === 'deload' ||
+    source === 'pain_backoff'
 
-  return { working, repMin, repMax, source, preDeloadKg, warmup, notes }
+  return {
+    scheme: ctx.scheme,
+    top,
+    sets: buildSets(ctx, top, needsExtraWarmup),
+    source,
+    preDeloadKg,
+    notes,
+  }
 }
 
 export type NextSet =
@@ -212,7 +286,7 @@ export type NextSet =
   | { action: 'stop_or_reduce'; weight: SnappedWeight; note: string }
 
 /**
- * Авторегуляция внутри упражнения (раздел 5.5).
+ * Авторегуляция внутри упражнения при прямой схеме (раздел 5.5).
  * preDeloadKg — вес до отката за паузу: на фидбеке 'легко' возвращаемся
  * к нему, а не прибавляем ступень к заниженному.
  */
@@ -255,4 +329,58 @@ export function nextSet(args: {
     case 'failed':
       return { action: 'continue', weight: stepKg(currentKg, grid, -1) }
   }
+}
+
+/**
+ * Ограничение рампы по ходу дела.
+ *
+ * Подводящий подход прошёл тяжелее ожидаемого — значит запланированный верх
+ * сегодня не твой. Срезаем остаток, вместо того чтобы вести тебя в подход,
+ * к которому ты явно не готов. Это ровно тот момент, где «страшновато»
+ * обычно решается на глаз.
+ *
+ * Возвращает остаток плана после подхода с индексом doneIndex.
+ */
+export function capRamp(args: {
+  sets: SetPlan[]
+  doneIndex: number
+  feedback: SetFeedback
+  grid: WeightGrid
+}): { remaining: SetPlan[]; note?: string } {
+  const { sets, doneIndex, feedback, grid } = args
+  const rest = sets.slice(doneIndex + 1)
+  if (rest.length === 0) return { remaining: [] }
+
+  const doneKg = sets[doneIndex].weight.weightKg
+
+  if (feedback === 'failed') {
+    return {
+      remaining: [],
+      note: 'Подводящий не добит — верхний подход сегодня пропускаем',
+    }
+  }
+
+  if (feedback === 'limit') {
+    const capKg = stepKg(doneKg, grid, 1).weightKg
+    const planned = rest[rest.length - 1]
+    const topKg = Math.min(capKg, planned.weight.weightKg)
+
+    // Верхний подход остаётся всегда — иначе за подход не зацепится прогрессия.
+    const topSet: SetPlan = {
+      ...planned,
+      role: 'working',
+      weight: snapKg(topKg, grid, 'nearest'),
+    }
+    const lead = rest
+      .slice(0, -1)
+      .filter((x) => x.weight.weightKg < topSet.weight.weightKg)
+      .map((x): SetPlan => ({ ...x, role: 'ramp' }))
+
+    return {
+      remaining: [...lead, topSet],
+      note: 'Подводящий был на пределе — верх срезан на одну ступень',
+    }
+  }
+
+  return { remaining: rest }
 }
