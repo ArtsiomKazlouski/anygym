@@ -1,6 +1,7 @@
 import type { setLogs } from '@/db/schema'
 import type { ItemPlan } from '@/lib/session/plan'
 import {
+  addSet,
   deferItem,
   deleteSet,
   finishItem,
@@ -27,6 +28,7 @@ type Props = {
       repMin: number
       repMax: number
       exerciseId: string | null
+      extraSets: number
       deferredCount: number
     }
     templateItem: { note: string | null; scheme: 'straight' | 'ramp' } | null
@@ -88,7 +90,9 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
               {item.status === 'deferred' &&
                 `занято${logged.length ? `, подходов ${logged.length}` : ''}`}
               {item.status === 'pending' &&
-                `${item.targetSets} × ${item.repMin}–${item.repMax}`}
+                (row.templateItem?.scheme === 'ramp'
+                  ? `рампа · ${item.repMin}–${item.repMax} повт`
+                  : `${item.targetSets} подх. × ${item.repMin}–${item.repMax}`)}
             </div>
           </div>
           {item.status === 'deferred' && (
@@ -156,6 +160,38 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         </form>
       )}
 
+      {plan && plan.planned.length > 0 && (
+        <div className="mt-3">
+          <div className="text-xs opacity-40">
+            {plan.prescription.scheme === 'ramp'
+              ? `План: ${plan.planned.length} подх., верх ${plan.planned[plan.planned.length - 1].weight.weight} ${plan.grid.units}`
+              : `План: ${plan.planned.length} подх. × ${plan.repMin}–${plan.repMax}`}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {plan.planned.map((s, i) => {
+              const state = i < logged.length ? 'done' : i === logged.length ? 'now' : 'next'
+              const mark = s.role === 'warmup' ? '°' : s.role === 'ramp' ? '~' : ''
+              return (
+                <span
+                  key={`${i}-${s.weight.weight}`}
+                  className={
+                    'rounded-lg px-2 py-1 text-xs tabular-nums ' +
+                    (state === 'done'
+                      ? 'bg-black/5 opacity-35 line-through dark:bg-white/10'
+                      : state === 'now'
+                        ? 'bg-black font-semibold text-white dark:bg-white dark:text-black'
+                        : 'border border-black/15 dark:border-white/20')
+                  }
+                >
+                  {mark}
+                  {s.weight.weight}×{s.reps[0] === s.reps[1] ? s.reps[0] : s.reps.join('–')}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {plan?.setup && Object.keys(plan.setup).length > 0 && (
         <div className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">
           <span className="opacity-50">Настройки: </span>
@@ -214,23 +250,28 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
                 : 'Подходов в плане нет.'}
           </p>
           {item.exerciseId && (
-            <form action={finishItem}>
-              <input type="hidden" name="itemId" value={item.id} />
-              <button
-                type="submit"
-                className="w-full rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black"
-              >
-                Дальше
-              </button>
-            </form>
+            <div className="flex gap-2">
+              <form action={addSet} className="flex-1">
+                <input type="hidden" name="itemId" value={item.id} />
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl border border-black/15 py-4 text-base dark:border-white/20"
+                >
+                  Ещё подход
+                </button>
+              </form>
+              <form action={finishItem} className="flex-1">
+                <input type="hidden" name="itemId" value={item.id} />
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl bg-black py-4 text-base font-medium text-white dark:bg-white dark:text-black"
+                >
+                  Дальше
+                </button>
+              </form>
+            </div>
           )}
         </div>
-      )}
-
-      {plan && plan.upcoming.length > 0 && (
-        <p className="mt-3 text-xs opacity-40">
-          Дальше: {plan.upcoming.map((s) => `${s.weight.weight}`).join(' → ')}
-        </p>
       )}
     </section>
   )

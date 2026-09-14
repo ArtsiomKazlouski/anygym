@@ -420,6 +420,8 @@ export const sessionItems = pgTable(
     targetSets: integer('target_sets').notNull(),
     repMin: integer('rep_min').notNull(),
     repMax: integer('rep_max').notNull(),
+    /** Подходы, добавленные сверх плана прямо на тренировке. */
+    extraSets: integer('extra_sets').notNull().default(0),
     deferredCount: integer('deferred_count').notNull().default(0),
   },
   (t) => [

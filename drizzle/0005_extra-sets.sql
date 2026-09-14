@@ -1,0 +1,1 @@
+ALTER TABLE "session_item" ADD COLUMN "extra_sets" integer DEFAULT 0 NOT NULL;

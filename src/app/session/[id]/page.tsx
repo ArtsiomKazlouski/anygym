@@ -77,6 +77,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               rampReps: row.templateItem?.rampReps ?? null,
               repMin: row.item.repMin,
               repMax: row.item.repMax,
+              extraSets: row.item.extraSets,
               firstForMuscleGroup: !workedGroups.has(muscleGroupOf(row.item.patternCode)),
               logged,
             })

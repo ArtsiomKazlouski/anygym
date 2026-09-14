@@ -176,6 +176,20 @@ export async function deleteSet(formData: FormData) {
   revalidatePath(`/session/${row.item.sessionId}`)
 }
 
+/** Ещё один подход сверх плана — план пункта растёт на единицу. */
+export async function addSet(formData: FormData) {
+  const userId = await requireUser()
+  const itemId = String(formData.get('itemId') ?? '')
+  const { item } = await ownedItem(userId, itemId)
+
+  await db
+    .update(sessionItems)
+    .set({ extraSets: item.extraSets + 1, status: 'active' })
+    .where(eq(sessionItems.id, item.id))
+
+  revalidatePath(`/session/${item.sessionId}`)
+}
+
 /** Занято: пункт уезжает в конец, к нему предложим вернуться позже. */
 export async function deferItem(formData: FormData) {
   const userId = await requireUser()

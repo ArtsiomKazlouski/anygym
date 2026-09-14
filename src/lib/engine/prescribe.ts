@@ -50,8 +50,10 @@ export type PrescribeContext = {
   /** Диапазон повторов рабочего (для рампы — верхнего) подхода. */
   repMin: number
   repMax: number
-  /** Сколько рабочих подходов. Для рампы игнорируется: длину задаёт rampPercents. */
+  /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
   sets?: number
+  /** Подходы сверх плана, добавленные на тренировке. Для рампы идут по верхнему весу. */
+  extraSets?: number
   /** Доли от верхнего веса, по возрастанию, последняя = 1. Только для рампы. */
   rampPercents?: number[]
   /** Целевые повторы на каждой ступени рампы. Короче списка — хвост берёт repMax. */
@@ -195,6 +197,11 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
       })
     })
 
+    // Подходы сверх плана идут по верхнему весу: рампа своё уже отработала.
+    for (let i = 0; i < (ctx.extraSets ?? 0); i++) {
+      plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
+    }
+
     // Рампа обычно сама себе разминка. Отдельный подход нужен только если
     // она начинается высоко — а это бывает на гантелях с редким рядом.
     const first = plan[0]
@@ -217,7 +224,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
     })
   }
 
-  for (let i = 0; i < (ctx.sets ?? 3); i++) {
+  for (let i = 0; i < (ctx.sets ?? 3) + (ctx.extraSets ?? 0); i++) {
     plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
   }
 

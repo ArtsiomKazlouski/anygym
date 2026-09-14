@@ -36,6 +36,13 @@
       "when": 1789378517561,
       "tag": "0004_declared-weight",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789383178448,
+      "tag": "0005_extra-sets",
+      "breakpoints": true
     }
   ]
 }

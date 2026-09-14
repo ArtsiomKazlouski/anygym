@@ -43,6 +43,7 @@ for (const it of items) {
     rampReps: it.rampReps,
     repMin: it.repMin,
     repMax: it.repMax,
+    extraSets: 0,
     firstForMuscleGroup: first,
     logged: [],
   })

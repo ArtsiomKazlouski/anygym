@@ -26,6 +26,8 @@ export type ItemPlan = {
    * Отличается от «упражнение закончено», где current тоже null.
    */
   manualEntry: boolean
+  /** Весь план подходов целиком, включая уже сделанные — для превью. */
+  planned: SetPlan[]
   /** Подход, который нужно сделать прямо сейчас. null = делать нечего. */
   current: SetPlan | null
   /** Остаток плана после текущего подхода — чтобы показать, что впереди. */
@@ -52,6 +54,7 @@ export async function buildItemPlan(args: {
   rampReps: number[] | null
   repMin: number
   repMax: number
+  extraSets: number
   firstForMuscleGroup: boolean
   logged: LoggedRow[]
 }): Promise<ItemPlan | null> {
@@ -88,6 +91,7 @@ export async function buildItemPlan(args: {
     repMin: args.repMin,
     repMax: args.repMax,
     sets: args.sets,
+    extraSets: args.extraSets,
     rampPercents: args.rampPercents ?? undefined,
     rampReps: args.rampReps ?? undefined,
     lastSessionSets: last,
@@ -112,14 +116,14 @@ export async function buildItemPlan(args: {
   // план достраивается от того, что реально поставил.
   if (!prescription.top) {
     const workingDone = args.logged.filter((l) => l.kind === 'working').length
-    const left = Math.max(0, args.sets - workingDone)
+    const left = Math.max(0, args.sets + args.extraSets - workingDone)
     const last = args.logged[args.logged.length - 1]
 
     if (!last) {
-      return { ...base, manualEntry: true, current: null, upcoming: [], notes }
+      return { ...base, manualEntry: true, planned: [], current: null, upcoming: [], notes }
     }
     if (left === 0) {
-      return { ...base, manualEntry: false, current: null, upcoming: [], notes }
+      return { ...base, manualEntry: false, planned: [], current: null, upcoming: [], notes }
     }
 
     // Подсказка «поставь вес сам» относится только к первому подходу —
@@ -148,6 +152,7 @@ export async function buildItemPlan(args: {
     return {
       ...base,
       manualEntry: false,
+      planned: [],
       current: next,
       upcoming: Array.from({ length: left - 1 }, () => next),
       notes,
@@ -213,6 +218,7 @@ export async function buildItemPlan(args: {
   return {
     ...base,
     manualEntry: false,
+    planned: [...effective.slice(0, done), ...remaining],
     current: remaining[0] ?? null,
     upcoming: remaining.slice(1),
     notes,
