@@ -47,6 +47,22 @@ const ROLE_LABEL = {
   working: 'рабочий',
 } as const
 
+/**
+ * Промежуток между записями подходов.
+ *
+ * Метка времени ставится в момент записи, то есть в конце подхода — значит
+ * в промежуток входит и отдых, и сам следующий подход. Поэтому подпись
+ * говорит «между подходами», а не «отдых»: приложение не должно называть
+ * величину точнее, чем умеет её измерить.
+ */
+function gapLabel(prev: Date, next: Date): string | null {
+  const sec = Math.round((next.getTime() - prev.getTime()) / 1000)
+  if (sec < 5 || sec > 60 * 60) return null
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s} с`
+}
+
 const FEEDBACK_LABEL = {
   easy: 'легко',
   on_target: 'в точку',
@@ -215,28 +231,32 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
 
       {logged.length > 0 && (
         <ol className="mt-3 flex flex-col gap-1">
-          {logged.map((s) => (
-            <li key={s.id} className="flex items-center gap-2 text-sm">
-              <span className="w-24 shrink-0 tabular-nums opacity-70">
-                {s.weight} {s.units}
-              </span>
-              <span className="shrink-0 tabular-nums opacity-70">{s.reps} повт</span>
-              <span className="min-w-0 flex-1 truncate text-xs opacity-45">
-                {s.feedback ? FEEDBACK_LABEL[s.feedback] : ROLE_LABEL[s.kind]}
-                {s.painZone && ' · боль'}
-              </span>
-              <form action={deleteSet}>
-                <input type="hidden" name="setId" value={s.id} />
-                <button
-                  type="submit"
-                  aria-label="Удалить подход"
-                  className="shrink-0 rounded-full border border-black/15 px-2.5 py-1 text-xs opacity-50 hover:opacity-100 dark:border-white/20"
-                >
-                  Удалить
-                </button>
-              </form>
-            </li>
-          ))}
+          {logged.map((s, i) => {
+            const gap = i > 0 ? gapLabel(logged[i - 1].loggedAt, s.loggedAt) : null
+            return (
+              <li key={s.id} className="flex items-center gap-2 text-sm">
+                <span className="w-24 shrink-0 tabular-nums opacity-70">
+                  {s.weight} {s.units}
+                </span>
+                <span className="shrink-0 tabular-nums opacity-70">{s.reps} повт</span>
+                <span className="min-w-0 flex-1 truncate text-xs opacity-45">
+                  {s.feedback ? FEEDBACK_LABEL[s.feedback] : ROLE_LABEL[s.kind]}
+                  {gap && ` · через ${gap}`}
+                  {s.painZone && ' · боль'}
+                </span>
+                <form action={deleteSet}>
+                  <input type="hidden" name="setId" value={s.id} />
+                  <button
+                    type="submit"
+                    aria-label="Удалить подход"
+                    className="shrink-0 rounded-full border border-black/15 px-2.5 py-1 text-xs opacity-50 hover:opacity-100 dark:border-white/20"
+                  >
+                    Удалить
+                  </button>
+                </form>
+              </li>
+            )
+          })}
         </ol>
       )}
 
