@@ -39,7 +39,7 @@ export function SessionRow({ row, primary }: { row: Row; primary?: boolean }) {
       <Link
         href={`/session/${row.id}`}
         className={
-          'block rounded-2xl px-5 py-4 text-white transition duration-75 active:scale-[0.99] dark:text-black ' +
+          'block rounded-2xl px-5 py-4 text-white transition duration-75 active:scale-[0.97] active:brightness-110 dark:text-black ' +
           (live ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-black dark:bg-white')
         }
       >
@@ -56,7 +56,7 @@ export function SessionRow({ row, primary }: { row: Row; primary?: boolean }) {
   return (
     <Link
       href={`/session/${row.id}`}
-      className="flex items-baseline justify-between gap-3 rounded-xl px-1 py-2 transition duration-75 hover:bg-black/5 active:scale-[0.99] dark:hover:bg-white/10"
+      className="flex items-baseline justify-between gap-3 rounded-xl px-2 py-2 transition duration-75 hover:bg-black/5 active:scale-[0.97] active:bg-black/10 dark:hover:bg-white/10 dark:active:bg-white/15"
     >
       <span className="shrink-0 text-sm tabular-nums">{dayFormat.format(row.startedAt)}</span>
       <span className="min-w-0 flex-1 truncate text-right text-xs opacity-50">
