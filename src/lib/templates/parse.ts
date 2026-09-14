@@ -60,3 +60,21 @@ export function rampWeightsFromPercents(
     })
     .join(', ')
 }
+
+/**
+ * Буфер под целевыми повторами.
+ *
+ * В интерфейсе задаётся одно число — столько, сколько человек собирается
+ * сделать. Но движку нужен диапазон: пока повторы растут внутри него, вес
+ * стоит, а закрыл верх — прибавился. Без буфера прогрессия становится
+ * линейной, то есть каждый раз либо плюс вес, либо ничего, и потолок
+ * приходит за пару месяцев.
+ *
+ * Два повтора — компромисс: заметный запас, но цель остаётся узнаваемой.
+ */
+export const REP_BUFFER = 2
+
+export function rangeFromTarget(target: number): { repMin: number; repMax: number } {
+  const repMax = Math.max(1, Math.round(target))
+  return { repMin: Math.max(1, repMax - REP_BUFFER), repMax }
+}

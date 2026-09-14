@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db'
 import { exercises, templateItems, templates } from '@/db/schema'
-import { parseNumbers, rampPercentsFromWeights } from './parse'
+import { parseNumbers, rampPercentsFromWeights, rangeFromTarget } from './parse'
 
 async function requireUser() {
   const session = await auth()
@@ -72,9 +72,12 @@ export async function archiveTemplate(formData: FormData) {
  */
 function itemFieldsFrom(formData: FormData) {
   const scheme = (str(formData, 'scheme') || 'straight') as 'straight' | 'ramp'
-  const repMin = Number(str(formData, 'repMin')) || 8
-  const repMax = Number(str(formData, 'repMax')) || 12
-  if (repMin > repMax) throw new Error('Нижняя граница повторов больше верхней')
+
+  // В форме одно число — столько, сколько собираешься сделать.
+  // Нижнюю границу выводим сами: без неё прогрессия становится линейной.
+  const target = Number(str(formData, 'reps'))
+  if (!Number.isFinite(target) || target <= 0) throw new Error('Нужны целевые повторы')
+  const { repMin, repMax } = rangeFromTarget(target)
 
   let rampPercents: number[] | null = null
   let rampReps: number[] | null = null

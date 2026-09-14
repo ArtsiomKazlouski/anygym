@@ -53,8 +53,8 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         {data.items.map(({ item, exerciseName, declaredKg }, index) => {
           const summary =
             item.scheme === 'ramp'
-              ? `рампа ${rampWeightsFromPercents(item.rampPercents, declaredKg) || '—'} · ${item.repMin}–${item.repMax}`
-              : `${item.sets} подх. × ${item.repMin}–${item.repMax}`
+              ? `рампа ${rampWeightsFromPercents(item.rampPercents, declaredKg) || '—'} · ${item.repMax} повт`
+              : `${item.sets} подх. × ${item.repMax}`
 
           return (
             <details

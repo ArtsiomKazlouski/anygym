@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseNumbers, rampPercentsFromWeights, rampWeightsFromPercents } from './parse.ts'
+import {
+  parseNumbers,
+  rampPercentsFromWeights,
+  rampWeightsFromPercents,
+  rangeFromTarget,
+} from './parse.ts'
 
 describe('разбор списка чисел', () => {
   it('понимает запятые и пробелы', () => {
@@ -39,5 +44,20 @@ describe('ступени рампы из килограммов', () => {
   it('пересчитывает под новый верх', () => {
     const { percents } = rampPercentsFromWeights('20, 60, 80, 90, 100')
     assert.equal(rampWeightsFromPercents(percents, 110), '22, 66, 88, 99, 110')
+  })
+})
+
+describe('диапазон из целевых повторов', () => {
+  it('цель становится верхом диапазона', () => {
+    assert.deepEqual(rangeFromTarget(15), { repMin: 13, repMax: 15 })
+  })
+
+  it('на низких повторах не уходит в ноль', () => {
+    assert.deepEqual(rangeFromTarget(2), { repMin: 1, repMax: 2 })
+    assert.deepEqual(rangeFromTarget(1), { repMin: 1, repMax: 1 })
+  })
+
+  it('жим на шесть даёт осмысленный запас', () => {
+    assert.deepEqual(rangeFromTarget(6), { repMin: 4, repMax: 6 })
   })
 })

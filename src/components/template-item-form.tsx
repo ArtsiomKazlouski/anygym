@@ -72,20 +72,12 @@ export function TemplateItemForm({
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs opacity-55">Повторы</span>
-          <div className="flex items-center gap-1">
-            <input
-              name="repMin"
-              inputMode="numeric"
-              defaultValue={item?.repMin ?? 8}
-              className={field}
-            />
-            <input
-              name="repMax"
-              inputMode="numeric"
-              defaultValue={item?.repMax ?? 12}
-              className={field}
-            />
-          </div>
+          <input
+            name="reps"
+            inputMode="numeric"
+            defaultValue={item?.repMax ?? 12}
+            className={field}
+          />
         </label>
       </div>
 

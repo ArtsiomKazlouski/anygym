@@ -111,8 +111,8 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
                 `занято${logged.length ? `, подходов ${logged.length}` : ''}`}
               {item.status === 'pending' &&
                 (row.templateItem?.scheme === 'ramp'
-                  ? `рампа · ${item.repMin}–${item.repMax} повт`
-                  : `${item.targetSets} подх. × ${item.repMin}–${item.repMax}`)}
+                  ? `рампа · ${item.repMax} повт`
+                  : `${item.targetSets} подх. × ${item.repMax}`)}
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -201,7 +201,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           <div className="text-xs opacity-40">
             {plan.prescription.scheme === 'ramp'
               ? `План: ${plan.planned.length} подх., верх ${plan.planned[plan.planned.length - 1].weight.weight} ${plan.grid.units}`
-              : `План: ${plan.planned.length} подх. × ${plan.repMin}–${plan.repMax}`}
+              : `План: ${plan.planned.length} подх. × ${plan.repMax}`}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {plan.planned.map((s, i) => {
@@ -216,7 +216,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
               const text = actual
                 ? `${actual.weight}×${actual.reps}`
                 : isRamp
-                  ? `${s.weight.weight}×${s.reps[0] === s.reps[1] ? s.reps[0] : s.reps.join('–')}`
+                  ? `${s.weight.weight}×${s.reps[1]}`
                   : `${s.weight.weight}`
 
               return (
@@ -348,8 +348,10 @@ function SetForm({
   // Фидбек спрашиваем и на подводящих: по нему срезается остаток рампы.
   // На разминке не спрашиваем — она ни на что не влияет.
   const wantsFeedback = role !== 'warmup'
-  const [repLo, repHi] = current?.reps ?? [plan.repMin, plan.repMax]
-  const repTarget = repLo === repHi ? `${repLo}` : `${repLo}–${repHi}`
+  const repHi = (current?.reps ?? [plan.repMin, plan.repMax])[1]
+  // В цели показываем одно число — верх диапазона. Нижняя граница выводится
+  // приложением и всплывает только в пояснении, когда вес снижается.
+  const repTarget = `${repHi}`
   const units = current?.weight.units ?? plan.grid.units
 
   // Вес выбирается барабаном из того, что на этой железке физически есть:
