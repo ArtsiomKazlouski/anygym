@@ -9,6 +9,7 @@ import {
   finishItem,
   logSet,
   pickExercise,
+  removeSessionItem,
   resumeItem,
   skipItem,
 } from '@/lib/session/actions'
@@ -114,14 +115,29 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
                   : `${item.targetSets} подх. × ${item.repMin}–${item.repMax}`)}
             </div>
           </div>
-          {item.status === 'deferred' && (
-            <form action={resumeItem}>
-              <input type="hidden" name="itemId" value={item.id} />
-              <SubmitButton className="shrink-0 rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
-                Вернуться
-              </SubmitButton>
-            </form>
-          )}
+          <div className="flex shrink-0 gap-2">
+            {item.status === 'deferred' && (
+              <form action={resumeItem}>
+                <input type="hidden" name="itemId" value={item.id} />
+                <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
+                  Вернуться
+                </SubmitButton>
+              </form>
+            )}
+            {/*
+              Убрать можно только пока ничего не записано: у начатого
+              упражнения есть подходы, и удаление молча стёрло бы их.
+              Для такого случая есть «Пропустить».
+            */}
+            {logged.length === 0 && item.status !== 'done' && (
+              <form action={removeSessionItem}>
+                <input type="hidden" name="itemId" value={item.id} />
+                <SubmitButton className="rounded-full px-2 py-1.5 text-xs opacity-40 hover:opacity-100">
+                  Убрать
+                </SubmitButton>
+              </form>
+            )}
+          </div>
         </div>
       </section>
     )

@@ -1,11 +1,14 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
+import { AddExercise } from '@/components/add-exercise'
 import { DeleteSession } from '@/components/delete-session'
 import { ItemCard } from '@/components/item-card'
 import { SessionHeader } from '@/components/session-header'
 import { muscleGroupOf } from '@/lib/patterns'
 import {
   alternativesFor,
+  equipmentInGym,
+  exercisesInGym,
   historyVolume,
   patternTitles,
   sessionWithItems,
@@ -21,7 +24,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const data = await sessionWithItems(userId, id)
   if (!data) redirect('/')
 
-  const patterns = await patternTitles()
+  const [patterns, addable, equipment] = await Promise.all([
+    patternTitles(),
+    exercisesInGym(userId, data.session.gymId),
+    equipmentInGym(userId, data.session.gymId),
+  ])
   const order = { active: 0, pending: 1, deferred: 2, done: 3, skipped: 4 } as const
   const sorted = [...data.items].sort(
     (a, b) => order[a.item.status] - order[b.item.status] || a.item.position - b.item.position,
@@ -108,6 +115,8 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       {cards.map((c) => (
         <ItemCard key={c.row.item.id} {...c} />
       ))}
+
+      <AddExercise sessionId={data.session.id} exercises={addable} equipment={equipment} />
 
       <DeleteSession
         sessionId={data.session.id}

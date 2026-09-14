@@ -106,6 +106,47 @@ export async function alternativesFor(
   return rows.filter((r) => !excluded.has(r.id))
 }
 
+/** Все упражнения пользователя, чья железка есть в этом зале. */
+export async function exercisesInGym(userId: string, gymId: string) {
+  return db
+    .select({
+      id: exercises.id,
+      name: exercises.name,
+      patternCode: exercises.patternCode,
+      modelName: equipmentModels.name,
+    })
+    .from(exercises)
+    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .innerJoin(
+      gymEquipment,
+      and(eq(gymEquipment.equipmentModelId, equipmentModels.id), eq(gymEquipment.gymId, gymId)),
+    )
+    .where(
+      and(
+        eq(exercises.userId, userId),
+        eq(exercises.isActive, true),
+        eq(gymEquipment.isActive, true),
+      ),
+    )
+    .orderBy(exercises.name)
+}
+
+/** Оборудование этого зала — для заведения нового упражнения на месте. */
+export async function equipmentInGym(userId: string, gymId: string) {
+  return db
+    .select({ id: equipmentModels.id, name: equipmentModels.name })
+    .from(gymEquipment)
+    .innerJoin(equipmentModels, eq(equipmentModels.id, gymEquipment.equipmentModelId))
+    .where(
+      and(
+        eq(gymEquipment.gymId, gymId),
+        eq(gymEquipment.isActive, true),
+        eq(equipmentModels.userId, userId),
+      ),
+    )
+    .orderBy(equipmentModels.name)
+}
+
 /** Сколько рабочих подходов накоплено по упражнению — этим ранжируются альтернативы. */
 export async function historyVolume(userId: string, exerciseIds: string[]) {
   if (exerciseIds.length === 0) return new Map<string, number>()

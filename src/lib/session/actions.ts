@@ -176,6 +176,96 @@ export async function deleteSet(formData: FormData) {
   revalidatePath(`/session/${row.item.sessionId}`)
 }
 
+const DEFAULT_SETS = 3
+const DEFAULT_REP_MIN = 8
+const DEFAULT_REP_MAX = 12
+
+/** Добавляет упражнение в идущую тренировку, не трогая шаблон. */
+export async function addSessionItem(formData: FormData) {
+  const userId = await requireUser()
+  const sessionId = String(formData.get('sessionId') ?? '')
+  const exerciseId = String(formData.get('exerciseId') ?? '')
+  if (!exerciseId) throw new Error('Не выбрано упражнение')
+
+  const [session] = await db
+    .select()
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.id, sessionId), eq(workoutSessions.userId, userId)))
+  if (!session) throw new Error('Тренировка не найдена')
+
+  const [exercise] = await db
+    .select()
+    .from(exercises)
+    .where(and(eq(exercises.id, exerciseId), eq(exercises.userId, userId)))
+  if (!exercise) throw new Error('Упражнение не найдено')
+
+  const [{ max }] = await db
+    .select({ max: sql<number>`coalesce(max(${sessionItems.position}), -1)` })
+    .from(sessionItems)
+    .where(eq(sessionItems.sessionId, sessionId))
+
+  await db.insert(sessionItems).values({
+    sessionId,
+    position: max + 1,
+    patternCode: exercise.patternCode,
+    exerciseId: exercise.id,
+    targetSets: DEFAULT_SETS,
+    repMin: DEFAULT_REP_MIN,
+    repMax: DEFAULT_REP_MAX,
+  })
+
+  revalidatePath(`/session/${sessionId}`)
+}
+
+/**
+ * Заводит упражнение и сразу ставит его в тренировку.
+ *
+ * Железка выбирается из того, что в этом зале уже известно: у нового
+ * оборудования нужны сетка весов, шаг и фото, а это отдельный экран.
+ */
+export async function createExerciseAndAdd(formData: FormData) {
+  const userId = await requireUser()
+  const sessionId = String(formData.get('sessionId') ?? '')
+  const name = String(formData.get('name') ?? '').trim()
+  const patternCode = String(formData.get('patternCode') ?? '')
+  const equipmentModelId = String(formData.get('equipmentModelId') ?? '')
+
+  if (!name) throw new Error('Нужно название упражнения')
+  if (!patternCode || !equipmentModelId) throw new Error('Не выбраны движение или тренажёр')
+
+  const [exercise] = await db
+    .insert(exercises)
+    .values({ userId, name, patternCode, equipmentModelId })
+    .returning()
+
+  const next = new FormData()
+  next.set('sessionId', sessionId)
+  next.set('exerciseId', exercise.id)
+  await addSessionItem(next)
+}
+
+/**
+ * Убирает пункт из тренировки насовсем.
+ *
+ * Только пока по нему ничего не записано: у начатого упражнения есть подходы,
+ * и удаление молча стёрло бы их. Для такого случая есть «Пропустить» — оно
+ * сохраняет факт, что упражнение планировалось и не было сделано.
+ */
+export async function removeSessionItem(formData: FormData) {
+  const userId = await requireUser()
+  const itemId = String(formData.get('itemId') ?? '')
+  const { item } = await ownedItem(userId, itemId)
+
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(setLogs)
+    .where(eq(setLogs.sessionItemId, item.id))
+  if (n > 0) throw new Error('По упражнению есть подходы — используй «Пропустить»')
+
+  await db.delete(sessionItems).where(eq(sessionItems.id, item.id))
+  revalidatePath(`/session/${item.sessionId}`)
+}
+
 /** Ещё один подход сверх плана — план пункта растёт на единицу. */
 export async function addSet(formData: FormData) {
   const userId = await requireUser()
