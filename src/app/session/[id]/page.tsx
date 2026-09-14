@@ -82,7 +82,6 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               scheme: row.templateItem?.scheme ?? 'straight',
               sets: row.item.targetSets,
               rampPercents: row.templateItem?.rampPercents ?? null,
-              rampReps: row.templateItem?.rampReps ?? null,
               repMin: row.item.repMin,
               repMax: row.item.repMax,
               extraSets: row.item.extraSets,

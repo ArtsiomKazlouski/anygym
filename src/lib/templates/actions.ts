@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db'
 import { exercises, templateItems, templates } from '@/db/schema'
-import { parseNumbers, rampPercentsFromWeights, rangeFromTarget } from './parse'
+import { rampPercentsFromWeights } from './parse'
 
 async function requireUser() {
   const session = await auth()
@@ -73,33 +73,19 @@ export async function archiveTemplate(formData: FormData) {
 function itemFieldsFrom(formData: FormData) {
   const scheme = (str(formData, 'scheme') || 'straight') as 'straight' | 'ramp'
 
-  // В форме одно число — столько, сколько собираешься сделать.
-  // Нижнюю границу выводим сами: без неё прогрессия становится линейной.
-  const target = Number(str(formData, 'reps'))
-  if (!Number.isFinite(target) || target <= 0) throw new Error('Нужны целевые повторы')
-  const { repMin, repMax } = rangeFromTarget(target)
-
+  // Целевых повторов здесь нет: это свойство упражнения, а не плана.
   let rampPercents: number[] | null = null
-  let rampReps: number[] | null = null
-
   if (scheme === 'ramp') {
     const { percents, error } = rampPercentsFromWeights(str(formData, 'rampWeights'))
     if (error) throw new Error(error)
     if (!percents) throw new Error('Для рампы нужны ступени: 20, 60, 80, 90, 100')
     rampPercents = percents
-
-    const reps = parseNumbers(str(formData, 'rampReps'))
-    if (reps.error) throw new Error(reps.error)
-    rampReps = reps.values.length > 0 ? reps.values : null
   }
 
   return {
     scheme,
     sets: Number(str(formData, 'sets')) || 3,
-    repMin,
-    repMax,
     rampPercents,
-    rampReps,
     note: str(formData, 'note') || null,
   }
 }

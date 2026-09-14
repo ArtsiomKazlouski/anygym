@@ -53,7 +53,7 @@ export function TemplateItemForm({
         ))}
       </select>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-xs opacity-55">Схема</span>
           <select name="scheme" defaultValue={item?.scheme ?? 'straight'} className={field}>
@@ -67,15 +67,6 @@ export function TemplateItemForm({
             name="sets"
             inputMode="numeric"
             defaultValue={item?.sets ?? 3}
-            className={field}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs opacity-55">Повторы</span>
-          <input
-            name="reps"
-            inputMode="numeric"
-            defaultValue={item?.repMax ?? 12}
             className={field}
           />
         </label>
@@ -95,16 +86,6 @@ export function TemplateItemForm({
           для текущего рабочего веса и могут выйти дробными — в зале движок округлит их по сетке
           железки.
         </span>
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-xs opacity-55">Повторы по ступеням</span>
-        <input
-          name="rampReps"
-          placeholder="12, 12, 10, 10"
-          defaultValue={isRamp ? (item?.rampReps ?? []).join(', ') : ''}
-          className={field}
-        />
       </label>
 
       <input

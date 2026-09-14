@@ -56,8 +56,6 @@ export type PrescribeContext = {
   extraSets?: number
   /** Доли от верхнего веса, по возрастанию, последняя = 1. Только для рампы. */
   rampPercents?: number[]
-  /** Целевые повторы на каждой ступени рампы. Короче списка — хвост берёт repMax. */
-  rampReps?: number[]
   /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ. Подводящие и разминку не передавать. */
   lastSessionSets: LoggedSet[]
   /**
@@ -176,8 +174,6 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
 
   if (ctx.scheme === 'ramp') {
     const percents = (ctx.rampPercents ?? [1]).slice().sort((a, b) => a - b)
-    const reps = ctx.rampReps ?? []
-
     let previousKg = -Infinity
     percents.forEach((p, i) => {
       const isTop = i === percents.length - 1
@@ -189,11 +185,12 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
       if (!isTop && (weight.weightKg <= previousKg || weight.weightKg >= top.weightKg)) return
       previousKg = weight.weightKg
 
-      const target = reps[i]
+      // Цель повторов одна на всё упражнение: подводящий отличается весом,
+      // а не тем, сколько раз ты собираешься поднять.
       plan.push({
         role: isTop ? 'working' : 'ramp',
         weight,
-        reps: isTop ? [repMin, repMax] : [target ?? repMax, target ?? repMax],
+        reps: [repMin, repMax],
         percent: p,
       })
     })

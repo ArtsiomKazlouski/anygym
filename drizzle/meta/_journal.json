@@ -50,6 +50,20 @@
       "when": 1789416406723,
       "tag": "0006_ramp-step",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789420140520,
+      "tag": "0007_exercise-target-reps",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789420173354,
+      "tag": "0008_plan-item-without-reps",
+      "breakpoints": true
     }
   ]
 }

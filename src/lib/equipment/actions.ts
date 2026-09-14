@@ -184,9 +184,33 @@ export async function createExerciseOn(formData: FormData) {
     name,
     patternCode,
     equipmentModelId,
+    targetReps: Math.round(num(formData, 'targetReps') ?? 12),
     declaredWorkingKg: num(formData, 'declaredWorkingKg'),
   })
   revalidatePath(`/equipment/${equipmentModelId}`)
+}
+
+export async function updateExercise(formData: FormData) {
+  const userId = await requireUser()
+  const id = str(formData, 'exerciseId')
+  const modelId = str(formData, 'modelId')
+  const name = str(formData, 'name')
+  const patternCode = str(formData, 'patternCode')
+  const targetReps = num(formData, 'targetReps')
+
+  if (!name || !patternCode) throw new Error('Нужны название и движение')
+  if (targetReps == null || targetReps < 1) throw new Error('Нужны целевые повторы')
+
+  await db
+    .update(exercises)
+    .set({
+      name,
+      patternCode,
+      targetReps: Math.round(targetReps),
+      declaredWorkingKg: num(formData, 'declaredWorkingKg'),
+    })
+    .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
+  revalidatePath(`/equipment/${modelId}`)
 }
 
 export async function archiveExercise(formData: FormData) {

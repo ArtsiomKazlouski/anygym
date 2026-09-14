@@ -76,7 +76,13 @@ export async function equipmentCard(userId: string, modelId: string) {
       .where(and(eq(gymEquipment.equipmentModelId, modelId), eq(gymEquipment.isActive, true)))
       .orderBy(gyms.name),
     db
-      .select({ id: exercises.id, name: exercises.name, patternCode: exercises.patternCode })
+      .select({
+        id: exercises.id,
+        name: exercises.name,
+        patternCode: exercises.patternCode,
+        targetReps: exercises.targetReps,
+        declaredWorkingKg: exercises.declaredWorkingKg,
+      })
       .from(exercises)
       .where(and(eq(exercises.equipmentModelId, modelId), eq(exercises.isActive, true)))
       .orderBy(exercises.name),

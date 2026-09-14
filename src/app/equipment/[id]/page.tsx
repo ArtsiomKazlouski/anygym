@@ -8,6 +8,7 @@ import {
   createExerciseOn,
   saveSetup,
   updateEquipment,
+  updateExercise,
 } from '@/lib/equipment/actions'
 import { equipmentCard } from '@/lib/equipment/queries'
 import { PATTERNS, getPattern } from '@/lib/patterns'
@@ -84,25 +85,77 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
         <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Упражнения</h2>
         <p className="mb-2 text-xs opacity-45">
           Прогрессия висит на упражнении, а не на железке: на одних и тех же гантелях жим под
-          45° и бицепс — разные веса, и смешивать их истории нельзя.
+          45° и бицепс — разные веса, и смешивать их истории нельзя. Целевые повторы тоже здесь:
+          «тяга гантелей — двенадцать» верно в любом плане и в любом зале.
         </p>
 
         <div className="mb-3 flex flex-col gap-1">
           {data.exercises.length === 0 && <p className="text-sm opacity-50">Пока ни одного.</p>}
           {data.exercises.map((e) => (
-            <div key={e.id} className="flex items-baseline justify-between gap-2 px-2 py-1.5">
-              <span className="min-w-0 truncate text-sm">{e.name}</span>
-              <span className="shrink-0 text-xs opacity-40">
-                {getPattern(e.patternCode)?.title ?? e.patternCode}
-              </span>
-              <form action={archiveExercise}>
+            <details
+              key={e.id}
+              className="rounded-xl border border-black/10 px-3 py-2 dark:border-white/15"
+            >
+              <summary className="cursor-pointer">
+                <span className="text-sm">{e.name}</span>
+                <span className="ml-2 text-xs opacity-40">
+                  {getPattern(e.patternCode)?.title ?? e.patternCode} · {e.targetReps} повт
+                </span>
+              </summary>
+
+              <form
+                key={`${e.name}-${e.patternCode}-${e.targetReps}-${e.declaredWorkingKg}`}
+                action={updateExercise}
+                className="mt-2 flex flex-col gap-2"
+              >
                 <input type="hidden" name="exerciseId" value={e.id} />
                 <input type="hidden" name="modelId" value={data.model.id} />
-                <SubmitButton className="rounded-full px-2 py-1 text-xs opacity-35 hover:opacity-100">
-                  Убрать
+                <input name="name" required defaultValue={e.name} className={field} />
+                <select
+                  name="patternCode"
+                  required
+                  defaultValue={e.patternCode}
+                  className={field}
+                >
+                  {PATTERNS.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs opacity-55">Целевые повторы</span>
+                    <input
+                      name="targetReps"
+                      inputMode="numeric"
+                      defaultValue={e.targetReps}
+                      className={field}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs opacity-55">Рабочий вес</span>
+                    <input
+                      name="declaredWorkingKg"
+                      inputMode="decimal"
+                      defaultValue={e.declaredWorkingKg ?? ''}
+                      className={field}
+                    />
+                  </label>
+                </div>
+                <SubmitButton className="rounded-xl border border-black/15 py-2.5 text-sm dark:border-white/20">
+                  Сохранить
                 </SubmitButton>
               </form>
-            </div>
+
+              <form action={archiveExercise} className="mt-1 text-right">
+                <input type="hidden" name="exerciseId" value={e.id} />
+                <input type="hidden" name="modelId" value={data.model.id} />
+                <SubmitButton className="px-2 py-1 text-xs opacity-35 hover:opacity-100">
+                  Убрать упражнение
+                </SubmitButton>
+              </form>
+            </details>
           ))}
         </div>
 
@@ -121,12 +174,20 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                 </option>
               ))}
             </select>
-            <input
-              name="declaredWorkingKg"
-              inputMode="decimal"
-              placeholder="Рабочий вес, если знаешь — с него начнём"
-              className={field}
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                name="targetReps"
+                inputMode="numeric"
+                placeholder="Повторы, обычно 12"
+                className={field}
+              />
+              <input
+                name="declaredWorkingKg"
+                inputMode="decimal"
+                placeholder="Рабочий вес"
+                className={field}
+              />
+            </div>
             <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
               Создать
             </SubmitButton>

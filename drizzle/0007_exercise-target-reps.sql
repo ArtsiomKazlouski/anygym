@@ -1,0 +1,1 @@
+ALTER TABLE "exercise" ADD COLUMN "target_reps" integer DEFAULT 12 NOT NULL;

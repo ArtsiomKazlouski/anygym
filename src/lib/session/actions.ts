@@ -15,6 +15,7 @@ import {
   workoutSessions,
 } from '@/db/schema'
 import { toKg } from '@/lib/engine'
+import { rangeFromTarget } from '@/lib/templates/parse'
 import { resolveGrid } from './grid'
 
 async function requireUser() {
@@ -47,23 +48,26 @@ export async function startSession(formData: FormData) {
     .returning()
 
   if (templateId) {
+    // Целевые повторы живут на упражнении, поэтому берём их оттуда и кладём
+    // в пункт сессии снимком: изменение цели не должно задним числом
+    // переписывать уже проведённые тренировки.
     const items = await db
-      .select()
+      .select({ item: templateItems, targetReps: exercises.targetReps })
       .from(templateItems)
+      .leftJoin(exercises, eq(exercises.id, templateItems.preferredExerciseId))
       .where(eq(templateItems.templateId, templateId))
       .orderBy(templateItems.position)
 
     if (items.length > 0) {
       await db.insert(sessionItems).values(
-        items.map((it) => ({
+        items.map(({ item, targetReps }) => ({
           sessionId: session.id,
-          position: it.position,
-          templateItemId: it.id,
-          patternCode: it.patternCode,
-          exerciseId: it.preferredExerciseId,
-          targetSets: it.sets,
-          repMin: it.repMin,
-          repMax: it.repMax,
+          position: item.position,
+          templateItemId: item.id,
+          patternCode: item.patternCode,
+          exerciseId: item.preferredExerciseId,
+          targetSets: item.sets,
+          ...rangeFromTarget(targetReps ?? DEFAULT_TARGET_REPS),
         })),
       )
     }
@@ -177,8 +181,7 @@ export async function deleteSet(formData: FormData) {
 }
 
 const DEFAULT_SETS = 3
-const DEFAULT_REP_MIN = 8
-const DEFAULT_REP_MAX = 12
+const DEFAULT_TARGET_REPS = 12
 
 /** Добавляет упражнение в идущую тренировку, не трогая шаблон. */
 export async function addSessionItem(formData: FormData) {
@@ -210,8 +213,7 @@ export async function addSessionItem(formData: FormData) {
     patternCode: exercise.patternCode,
     exerciseId: exercise.id,
     targetSets: DEFAULT_SETS,
-    repMin: DEFAULT_REP_MIN,
-    repMax: DEFAULT_REP_MAX,
+    ...rangeFromTarget(exercise.targetReps ?? DEFAULT_TARGET_REPS),
   })
 
   revalidatePath(`/session/${sessionId}`)
@@ -233,9 +235,16 @@ export async function createExerciseAndAdd(formData: FormData) {
   if (!name) throw new Error('Нужно название упражнения')
   if (!patternCode || !equipmentModelId) throw new Error('Не выбраны движение или тренажёр')
 
+  const targetReps = Number(String(formData.get('targetReps') ?? '').trim())
   const [exercise] = await db
     .insert(exercises)
-    .values({ userId, name, patternCode, equipmentModelId })
+    .values({
+      userId,
+      name,
+      patternCode,
+      equipmentModelId,
+      targetReps: Number.isFinite(targetReps) && targetReps > 0 ? Math.round(targetReps) : 12,
+    })
     .returning()
 
   const next = new FormData()

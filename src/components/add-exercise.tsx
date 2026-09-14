@@ -81,6 +81,12 @@ export function AddExercise({
               </option>
             ))}
           </select>
+          <input
+            name="targetReps"
+            inputMode="numeric"
+            placeholder="Целевые повторы, обычно 12"
+            className={control}
+          />
           <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
             Завести и добавить
           </SubmitButton>

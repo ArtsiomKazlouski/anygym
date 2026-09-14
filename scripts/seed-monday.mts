@@ -41,6 +41,8 @@ type ExerciseSeed = {
   name: string
   pattern: string
   model: string
+  /** Целевые повторы — свойство упражнения, а не плана. */
+  targetReps: number
   /** Рабочий вес со слов пользователя. null — сказал, что не помнит. */
   declaredKg?: number
   notes?: string
@@ -90,6 +92,7 @@ const MODELS: (Omit<ModelSeed, 'userId'> & { key: string })[] = [
 const EXERCISES: ExerciseSeed[] = [
   {
     key: 'bench',
+    targetReps: 6,
     name: 'Жим лёжа',
     pattern: 'horizontal_press',
     model: 'barbell',
@@ -97,6 +100,7 @@ const EXERCISES: ExerciseSeed[] = [
   },
   {
     key: 'db45',
+    targetReps: 12,
     name: 'Жим гантелей под наклоном 45°',
     pattern: 'incline_press',
     model: 'dumbbells',
@@ -105,21 +109,36 @@ const EXERCISES: ExerciseSeed[] = [
   // 30° и альтернативы сведения — вес не назывался, заполнится с первой тренировки
   {
     key: 'db30',
+    targetReps: 12,
     name: 'Жим гантелей под наклоном 30°',
     pattern: 'incline_press',
     model: 'dumbbells',
   },
   {
     key: 'pec',
+    targetReps: 12,
     name: 'Сведение в бабочке',
     pattern: 'chest_fly',
     model: 'pec_deck',
     notes: 'Вес не помнит: называл 30-70',
   },
-  { key: 'cross', name: 'Сведение на кроссовере', pattern: 'chest_fly', model: 'cable' },
-  { key: 'db_fly', name: 'Разводка гантелями лёжа', pattern: 'chest_fly', model: 'dumbbells' },
+  {
+    key: 'cross',
+    targetReps: 12,
+    name: 'Сведение на кроссовере',
+    pattern: 'chest_fly',
+    model: 'cable',
+  },
+  {
+    key: 'db_fly',
+    targetReps: 12,
+    name: 'Разводка гантелями лёжа',
+    pattern: 'chest_fly',
+    model: 'dumbbells',
+  },
   {
     key: 'curl_seated',
+    targetReps: 15,
     name: 'Бицепс гантелями сидя',
     pattern: 'biceps_curl',
     model: 'dumbbells',
@@ -127,6 +146,7 @@ const EXERCISES: ExerciseSeed[] = [
   },
   {
     key: 'curl_ez',
+    targetReps: 15,
     name: 'Бицепс с EZ-грифом стоя',
     pattern: 'biceps_curl',
     model: 'ez',
@@ -134,6 +154,7 @@ const EXERCISES: ExerciseSeed[] = [
   },
   {
     key: 'hammer',
+    targetReps: 15,
     name: 'Молоточки',
     pattern: 'biceps_curl',
     model: 'dumbbells',
@@ -141,6 +162,7 @@ const EXERCISES: ExerciseSeed[] = [
   },
   {
     key: 'abs',
+    targetReps: 15,
     name: 'Пресс в тренажёре',
     pattern: 'trunk_flexion',
     model: 'ab',
@@ -154,9 +176,6 @@ type ItemSeed = {
   scheme: 'straight' | 'ramp'
   sets?: number
   rampPercents?: number[]
-  rampReps?: number[]
-  repMin: number
-  repMax: number
   note?: string
 }
 
@@ -166,9 +185,6 @@ const ITEMS: ItemSeed[] = [
     preferred: 'bench',
     scheme: 'ramp',
     rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-    rampReps: [12, 12, 10, 10],
-    repMin: 5,
-    repMax: 6,
     note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
   },
   {
@@ -176,58 +192,42 @@ const ITEMS: ItemSeed[] = [
     preferred: 'db45',
     scheme: 'ramp',
     rampPercents: [0.6, 0.72, 0.89, 1],
-    rampReps: [12, 12, 12],
-    repMin: 10,
-    repMax: 12,
   },
   {
     pattern: 'incline_press',
     preferred: 'db30',
     scheme: 'straight',
     sets: 2,
-    repMin: 10,
-    repMax: 12,
   },
   {
     pattern: 'chest_fly',
     preferred: 'pec',
     scheme: 'straight',
     sets: 4,
-    repMin: 10,
-    repMax: 12,
   },
   {
     pattern: 'biceps_curl',
     preferred: 'curl_seated',
     scheme: 'straight',
     sets: 4,
-    repMin: 12,
-    repMax: 15,
   },
   {
     pattern: 'biceps_curl',
     preferred: 'curl_ez',
     scheme: 'straight',
     sets: 4,
-    repMin: 12,
-    repMax: 15,
   },
   {
     pattern: 'biceps_curl',
     preferred: 'hammer',
     scheme: 'straight',
     sets: 3,
-    repMin: 12,
-    repMax: 15,
   },
   {
     pattern: 'trunk_flexion',
     preferred: 'abs',
     scheme: 'ramp',
     rampPercents: [0.6, 0.8, 1],
-    rampReps: [15, 15],
-    repMin: 12,
-    repMax: 15,
   },
 ]
 
@@ -304,6 +304,7 @@ for (const e of EXERCISES) {
           name: e.name,
           patternCode: e.pattern,
           equipmentModelId: modelIds.get(e.model)!,
+          targetReps: e.targetReps,
           declaredWorkingKg: e.declaredKg ?? null,
           notes: e.notes,
         })
@@ -338,9 +339,6 @@ if (!existingTemplate) {
       scheme: it.scheme,
       sets: it.sets ?? 3,
       rampPercents: it.rampPercents,
-      rampReps: it.rampReps,
-      repMin: it.repMin,
-      repMax: it.repMax,
       note: it.note,
     })),
   )

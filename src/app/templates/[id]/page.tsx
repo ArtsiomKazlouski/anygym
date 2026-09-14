@@ -50,11 +50,11 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
           <p className="text-sm opacity-50">Пунктов пока нет — добавь первое упражнение.</p>
         )}
 
-        {data.items.map(({ item, exerciseName, declaredKg }, index) => {
+        {data.items.map(({ item, exerciseName, declaredKg, targetReps }, index) => {
           const summary =
             item.scheme === 'ramp'
-              ? `рампа ${rampWeightsFromPercents(item.rampPercents, declaredKg) || '—'} · ${item.repMax} повт`
-              : `${item.sets} подх. × ${item.repMax}`
+              ? `рампа ${rampWeightsFromPercents(item.rampPercents, declaredKg) || '—'} · ${targetReps} повт`
+              : `${item.sets} подх. × ${targetReps}`
 
           return (
             <details
@@ -95,10 +95,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
                     item.preferredExerciseId,
                     item.scheme,
                     item.sets,
-                    item.repMin,
-                    item.repMax,
                     item.rampPercents,
-                    item.rampReps,
                     item.note,
                   ])}
                   action={updateTemplateItem}

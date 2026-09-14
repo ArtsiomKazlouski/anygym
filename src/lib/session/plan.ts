@@ -51,7 +51,6 @@ export async function buildItemPlan(args: {
   scheme: 'straight' | 'ramp'
   sets: number
   rampPercents: number[] | null
-  rampReps: number[] | null
   repMin: number
   repMax: number
   extraSets: number
@@ -93,7 +92,6 @@ export async function buildItemPlan(args: {
     sets: args.sets,
     extraSets: args.extraSets,
     rampPercents: args.rampPercents ?? undefined,
-    rampReps: args.rampReps ?? undefined,
     lastSessionSets: last,
     declaredWorkingKg: exercise.ex.declaredWorkingKg,
     daysSincePattern: days,

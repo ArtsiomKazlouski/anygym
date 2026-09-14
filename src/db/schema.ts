@@ -315,6 +315,12 @@ export const exercises = pgTable(
       .notNull()
       .references(() => equipmentModels.id, { onDelete: 'cascade' }),
     /**
+     * Целевые повторы — свойство упражнения, а не плана.
+     * «Тяга гантелей — двенадцать» верно в любом плане и в любом зале;
+     * то, что вышло десять, — результат, а не другая цель.
+     */
+    targetReps: integer('target_reps').notNull().default(12),
+    /**
      * Рабочий вес со слов пользователя — стартовая точка, пока истории нет.
      * Как только появится первая запись, история его вытесняет.
      */
@@ -373,12 +379,9 @@ export const templateItems = pgTable(
     scheme: setScheme('scheme').notNull().default('straight'),
     /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
     sets: integer('sets').notNull().default(3),
+    /* Целевых повторов здесь нет: это свойство упражнения (exercise.target_reps). */
     /** Доли от верхнего веса по возрастанию, последняя = 1. Только для рампы. */
     rampPercents: numeric('ramp_percents', { precision: 4, scale: 3, mode: 'number' }).array(),
-    /** Целевые повторы на каждой ступени рампы. Короче списка — хвост берёт repMax. */
-    rampReps: integer('ramp_reps').array(),
-    repMin: integer('rep_min').notNull().default(8),
-    repMax: integer('rep_max').notNull().default(12),
     note: text('note'),
   },
   (t) => [index('template_item_template_idx').on(t.templateId, t.position)],

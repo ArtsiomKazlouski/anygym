@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../src/db/index.ts'
 import { authUsers, exercises, gyms, templateItems, templates } from '../src/db/schema.ts'
 import { muscleGroupOf } from '../src/lib/patterns.ts'
+import { rangeFromTarget } from '../src/lib/templates/parse.ts'
 import { buildItemPlan } from '../src/lib/session/plan.ts'
 import { patternTitles } from '../src/lib/session/queries.ts'
 
@@ -27,7 +28,10 @@ console.log(`Зал: ${gym.name}   Тренировка: ${tpl.name}\n`)
 const workedGroups = new Set<string>()
 
 for (const it of items) {
-  const [ex] = await db.select().from(exercises).where(eq(exercises.id, it.preferredExerciseId!))
+  const [ex] = await db
+    .select()
+    .from(exercises)
+    .where(eq(exercises.id, it.preferredExerciseId!))
   const group = muscleGroupOf(it.patternCode)!
   const first = !workedGroups.has(group)
 
@@ -40,9 +44,7 @@ for (const it of items) {
     scheme: it.scheme,
     sets: it.sets,
     rampPercents: it.rampPercents,
-    rampReps: it.rampReps,
-    repMin: it.repMin,
-    repMax: it.repMax,
+    ...rangeFromTarget(ex.targetReps),
     extraSets: 0,
     firstForMuscleGroup: first,
     logged: [],
@@ -51,7 +53,9 @@ for (const it of items) {
 
   const head = `${it.position + 1}. ${ex.name}`
   console.log(head)
-  console.log(`   ${titles.get(it.patternCode)?.title} · ${it.scheme === 'ramp' ? 'рампа' : 'прямая'}`)
+  console.log(
+    `   ${titles.get(it.patternCode)?.title} · ${it.scheme === 'ramp' ? 'рампа' : 'прямая'}`,
+  )
 
   if (!plan?.prescription.top) {
     console.log(`   → ${plan?.notes.join('; ')}\n`)

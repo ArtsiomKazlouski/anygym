@@ -332,7 +332,6 @@ describe('рампа', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      rampReps: [12, 12, 10, 10],
       // 'limit' на верхнем: повторы закрыты, но вес не растим
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
@@ -344,6 +343,11 @@ describe('рампа', () => {
     assert.deepEqual(
       p.sets.map((s) => s.weight.weight),
       [20, 60, 80, 90, 100],
+    )
+    assert.deepEqual(
+      p.sets.map((s) => s.reps[1]),
+      [6, 6, 6, 6, 6],
+      'цель повторов одна на упражнение: подводящий отличается весом, а не целью',
     )
     assert.equal(workingOf(p).length, 1, 'в рампе рабочий подход один — верхний')
     assert.equal(rampOf(p).length, 4)
@@ -357,7 +361,6 @@ describe('рампа', () => {
       repMin: 10,
       repMax: 12,
       rampPercents: [0.6, 0.72, 0.89, 1],
-      rampReps: [12, 12, 12],
       lastSessionSets: sets([36, 10, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
@@ -532,7 +535,6 @@ describe('пересчёт рампы под фактический вес', () 
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      rampReps: [12, 12, 10, 10],
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
@@ -675,7 +677,6 @@ describe('грубый шаг для подводящих', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      rampReps: [12, 12, 10, 10],
       lastSessionSets: sets([topKg, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,

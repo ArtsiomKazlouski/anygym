@@ -28,6 +28,7 @@ export async function templateWithItems(userId: string, templateId: string) {
       item: templateItems,
       exerciseName: exercises.name,
       declaredKg: exercises.declaredWorkingKg,
+      targetReps: exercises.targetReps,
     })
     .from(templateItems)
     .leftJoin(exercises, eq(exercises.id, templateItems.preferredExerciseId))
@@ -39,6 +40,7 @@ export async function templateWithItems(userId: string, templateId: string) {
       id: exercises.id,
       name: exercises.name,
       patternCode: exercises.patternCode,
+      targetReps: exercises.targetReps,
       modelName: equipmentModels.name,
     })
     .from(exercises)
