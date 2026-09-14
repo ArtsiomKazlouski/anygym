@@ -9,7 +9,8 @@ import { type SnappedWeight, type WeightGrid, snapKg, stepKg } from './weights.t
 
 export type SetFeedback = 'easy' | 'on_target' | 'limit' | 'failed'
 
-export type PrescriptionSource = 'history' | 'probe' | 'manual' | 'deload' | 'pain_backoff'
+export type PrescriptionSource =
+  'history' | 'declared' | 'probe' | 'manual' | 'deload' | 'pain_backoff'
 
 /**
  * Схема подходов.
@@ -65,7 +66,12 @@ export type PrescribeContext = {
   daysSincePattern: number | null
   /** Была ли отмечена боль на этой модели в последних двух сессиях. */
   painRecent: boolean
-  /** Рабочий вес на другой модели того же паттерна — база для разведки. */
+  /**
+   * Рабочий вес со слов пользователя. Используется, пока нет истории:
+   * названный им самим вес точнее, чем 60% от другого упражнения.
+   */
+  declaredWorkingKg?: number | null
+  /** Рабочий вес на другом упражнении того же паттерна — база для разведки. */
   probeBaseKg?: number | null
   /** Первое ли это упражнение на данную мышечную группу в текущей сессии. */
   firstForMuscleGroup: boolean
@@ -213,6 +219,10 @@ export function prescribe(ctx: PrescribeContext): Prescription {
       topKg = historyBase
       notes.push('Вес держим, растём в повторах')
     }
+  } else if (ctx.declaredWorkingKg != null && !reset) {
+    source = 'declared'
+    topKg = ctx.declaredWorkingKg
+    notes.push('Стартуем с веса, который ты назвал сам — дальше поведёт история')
   } else if (ctx.probeBaseKg != null) {
     source = 'probe'
     topKg = ctx.probeBaseKg * PROBE_FACTOR

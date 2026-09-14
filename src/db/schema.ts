@@ -74,6 +74,7 @@ export const setFeedback = pgEnum('set_feedback', [
 /** Откуда взялся предложенный вес — нужно, чтобы потом оценить движок. */
 export const prescriptionSource = pgEnum('prescription_source', [
   'history',
+  'declared',
   'probe',
   'manual',
   'deload',
@@ -160,9 +161,6 @@ export const equipmentModels = pgTable(
     name: text('name').notNull(),
     brand: text('brand'),
     kind: equipmentKind('kind').notNull(),
-    patternCode: text('pattern_code')
-      .notNull()
-      .references(() => patterns.code),
     units: weightUnits('units').notNull().default('kg'),
     /** Шаг дискретизации для stack / plate_loaded / cable. */
     step: numeric('step', { precision: 7, scale: 2, mode: 'number' }),
@@ -194,7 +192,7 @@ export const equipmentModels = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('equipment_model_user_pattern_idx').on(t.userId, t.patternCode)],
+  (t) => [index('equipment_model_user_idx').on(t.userId)],
 )
 
 export const gyms = pgTable('gym', {
@@ -282,6 +280,48 @@ export const equipmentSetups = pgTable(
   (t) => [unique('equipment_setup_unique').on(t.userId, t.equipmentModelId, t.gymEquipmentId)],
 )
 
+/**
+ * Упражнение — то, на чём висит прогрессия.
+ *
+ * Железка сама по себе недостаточна: на одних и тех же гантелях делается
+ * и жим под 45°, и жим под 30°, и бицепс, и молоточки — рабочие веса у них
+ * разные, и слипаться их истории не должны. Поэтому ключ прогрессии — это
+ * упражнение, а не модель оборудования.
+ */
+export const exercises = pgTable(
+  'exercise',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    /** Как ты его называешь: «жим гантелей под наклоном 45°». */
+    name: text('name').notNull(),
+    patternCode: text('pattern_code')
+      .notNull()
+      .references(() => patterns.code),
+    equipmentModelId: uuid('equipment_model_id')
+      .notNull()
+      .references(() => equipmentModels.id, { onDelete: 'cascade' }),
+    /**
+     * Рабочий вес со слов пользователя — стартовая точка, пока истории нет.
+     * Как только появится первая запись, история его вытесняет.
+     */
+    declaredWorkingKg: numeric('declared_working_kg', {
+      precision: 7,
+      scale: 2,
+      mode: 'number',
+    }),
+    notes: text('notes'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('exercise_user_pattern_idx').on(t.userId, t.patternCode),
+    index('exercise_model_idx').on(t.equipmentModelId),
+  ],
+)
+
 /* ------------------------------------------------------------------ *
  * Шаблоны тренировок
  * ------------------------------------------------------------------ */
@@ -313,12 +353,12 @@ export const templateItems = pgTable(
     patternCode: text('pattern_code')
       .notNull()
       .references(() => patterns.code),
-    /** Привычная железка — поднимается в списке наверх. */
-    preferredModelId: uuid('preferred_model_id').references(() => equipmentModels.id, {
+    /** Привычное упражнение — поднимается в списке наверх. */
+    preferredExerciseId: uuid('preferred_exercise_id').references(() => exercises.id, {
       onDelete: 'set null',
     }),
     /** «Никогда не предлагай мне этот кроссовер». */
-    excludedModelIds: uuid('excluded_model_ids').array().notNull().default([]),
+    excludedExerciseIds: uuid('excluded_exercise_ids').array().notNull().default([]),
     scheme: setScheme('scheme').notNull().default('straight'),
     /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
     sets: integer('sets').notNull().default(3),
@@ -374,10 +414,8 @@ export const sessionItems = pgTable(
     patternCode: text('pattern_code')
       .notNull()
       .references(() => patterns.code),
-    /** Выбранная железка; null, пока пользователь не выбрал. */
-    gymEquipmentId: uuid('gym_equipment_id').references(() => gymEquipment.id, {
-      onDelete: 'set null',
-    }),
+    /** Выбранное упражнение; null, пока пользователь не выбрал. */
+    exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
     status: sessionItemStatus('status').notNull().default('pending'),
     targetSets: integer('target_sets').notNull(),
     repMin: integer('rep_min').notNull(),
@@ -386,7 +424,7 @@ export const sessionItems = pgTable(
   },
   (t) => [
     index('session_item_session_idx').on(t.sessionId, t.position),
-    index('session_item_equipment_idx').on(t.gymEquipmentId),
+    index('session_item_exercise_idx').on(t.exerciseId),
   ],
 )
 

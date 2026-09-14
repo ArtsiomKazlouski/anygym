@@ -15,6 +15,27 @@
       "when": 1789377677160,
       "tag": "0001_ramp",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789378135706,
+      "tag": "0002_exercise-table",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789378140795,
+      "tag": "0003_exercise-links",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789378517561,
+      "tag": "0004_declared-weight",
+      "breakpoints": true
     }
   ]
 }

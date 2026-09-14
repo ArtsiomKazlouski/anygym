@@ -11,8 +11,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "node --env-file=.env.local scripts/seed-patterns.mts",
-    "test": "node --test src/lib/engine/engine.test.mts"
+    "db:seed": "tsx --env-file=.env.local scripts/seed-patterns.mts",
+    "test": "node --test src/lib/engine/engine.test.mts",
+    "db:seed:monday": "tsx --env-file=.env.local scripts/seed-monday.mts",
+    "dry-run": "tsx --env-file=.env.local scripts/dry-run.mts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
@@ -36,6 +38,7 @@
     "eslint-config-next": "16.3.5",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   },
   "description": "Трекер тренировок для тех, кто ходит по разным залам"

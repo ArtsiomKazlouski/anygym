@@ -1,0 +1,135 @@
+import { and, eq } from 'drizzle-orm'
+import { db } from '@/db'
+import { equipmentModels, exercises, gymEquipment, setLogs } from '@/db/schema'
+import {
+  type Prescription,
+  type SetPlan,
+  type WeightGrid,
+  capRamp,
+  nextSet,
+  prescribe,
+} from '@/lib/engine'
+import { resolveGrid } from './grid'
+import { daysSincePattern, lastSessionSets, painRecent, probeBaseKg, setupFor } from './queries'
+
+type LoggedRow = typeof setLogs.$inferSelect
+
+export type ItemPlan = {
+  grid: WeightGrid
+  prescription: Prescription
+  /** Подход, который нужно сделать прямо сейчас. null = упражнение закончено. */
+  current: SetPlan | null
+  /** Остаток плана после текущего подхода — чтобы показать, что впереди. */
+  upcoming: SetPlan[]
+  /** Запомненные настройки железки. */
+  setup: Record<string, string> | null
+  setupNote: string | null
+  notes: string[]
+}
+
+/**
+ * Собирает план подходов для пункта сессии: тянет историю, зовёт движок
+ * и накладывает уже записанные сегодня подходы.
+ */
+export async function buildItemPlan(args: {
+  userId: string
+  gymId: string
+  sessionId: string
+  exerciseId: string
+  patternCode: string
+  scheme: 'straight' | 'ramp'
+  sets: number
+  rampPercents: number[] | null
+  rampReps: number[] | null
+  repMin: number
+  repMax: number
+  firstForMuscleGroup: boolean
+  logged: LoggedRow[]
+}): Promise<ItemPlan | null> {
+  const [exercise] = await db
+    .select({ ex: exercises, model: equipmentModels })
+    .from(exercises)
+    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .where(and(eq(exercises.id, args.exerciseId), eq(exercises.userId, args.userId)))
+  if (!exercise) return null
+
+  const [instance] = await db
+    .select()
+    .from(gymEquipment)
+    .where(
+      and(
+        eq(gymEquipment.gymId, args.gymId),
+        eq(gymEquipment.equipmentModelId, exercise.model.id),
+      ),
+    )
+
+  const grid = resolveGrid(exercise.model, instance)
+
+  const [last, days, pain, probe, setup] = await Promise.all([
+    lastSessionSets(args.userId, args.exerciseId, args.sessionId),
+    daysSincePattern(args.userId, args.patternCode),
+    painRecent(args.userId, args.exerciseId),
+    probeBaseKg(args.userId, args.patternCode, args.exerciseId),
+    setupFor(args.userId, exercise.model.id, instance?.id),
+  ])
+
+  const prescription = prescribe({
+    scheme: args.scheme,
+    grid,
+    repMin: args.repMin,
+    repMax: args.repMax,
+    sets: args.sets,
+    rampPercents: args.rampPercents ?? undefined,
+    rampReps: args.rampReps ?? undefined,
+    lastSessionSets: last,
+    declaredWorkingKg: exercise.ex.declaredWorkingKg,
+    daysSincePattern: days,
+    painRecent: pain,
+    probeBaseKg: probe,
+    firstForMuscleGroup: args.firstForMuscleGroup,
+  })
+
+  const notes = [...prescription.notes]
+  const done = args.logged.length
+  let remaining = prescription.sets.slice(done)
+  const previous = done > 0 ? args.logged[done - 1] : null
+
+  if (previous?.feedback) {
+    if (args.scheme === 'ramp' && previous.kind === 'ramp') {
+      // Подводящий дался тяжелее ожидаемого — срезаем остаток рампы.
+      const capped = capRamp({
+        sets: prescription.sets,
+        doneIndex: done - 1,
+        feedback: previous.feedback,
+        grid,
+      })
+      remaining = capped.remaining
+      if (capped.note) notes.push(capped.note)
+    } else if (previous.kind === 'working' && remaining.length > 0) {
+      // Прямая схема: вес следующего подхода ведёт фидбек предыдущего.
+      const nx = nextSet({
+        currentKg: previous.weightKg,
+        feedback: previous.feedback,
+        grid,
+        preDeloadKg: prescription.preDeloadKg,
+        pain: previous.painZone != null,
+      })
+      if (nx.note) notes.push(nx.note)
+      if (nx.action === 'stop_or_reduce') {
+        remaining = [{ ...remaining[0], weight: nx.weight }]
+      } else {
+        remaining = remaining.map((s, i) => (i === 0 ? { ...s, weight: nx.weight } : s))
+      }
+    }
+  }
+
+  return {
+    grid,
+    prescription,
+    current: remaining[0] ?? null,
+    upcoming: remaining.slice(1),
+    setup: setup?.settings ?? null,
+    setupNote: setup?.note ?? null,
+    notes,
+  }
+}

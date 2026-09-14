@@ -1,0 +1,336 @@
+/**
+ * Заливает зал CityFit Westfield и шаблон «грудь + бицепс» по docs/inventory.md.
+ *
+ * Идемпотентно: всё ищется по имени, существующее не трогается.
+ * Запуск: npm run db:seed:monday
+ */
+import { neon } from '@neondatabase/serverless'
+import { and, eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/neon-http'
+import {
+  authUsers,
+  equipmentModels,
+  exercises,
+  gymEquipment,
+  gyms,
+  templateItems,
+  templates,
+} from '../src/db/schema.ts'
+
+const url = process.env.DATABASE_URL
+if (!url) throw new Error('DATABASE_URL не задан (нужен .env.local)')
+
+const email = (process.env.ALLOWED_EMAILS ?? '').split(',')[0]?.trim()
+if (!email) throw new Error('ALLOWED_EMAILS пуст — непонятно, кому принадлежат данные')
+
+const db = drizzle(neon(url))
+
+const [user] = await db.select().from(authUsers).where(eq(authUsers.email, email))
+if (!user) throw new Error(`Пользователь ${email} не найден — сначала войди в приложение`)
+const userId = user.id
+
+/** Ряд гантелей CityFit: 1..10 через 1, дальше через 2 до 40. */
+const CITYFIT_DUMBBELLS = [
+  ...Array.from({ length: 10 }, (_, i) => i + 1),
+  ...Array.from({ length: 15 }, (_, i) => 12 + i * 2),
+]
+
+type ModelSeed = typeof equipmentModels.$inferInsert
+type ExerciseSeed = {
+  key: string
+  name: string
+  pattern: string
+  model: string
+  /** Рабочий вес со слов пользователя. null — сказал, что не помнит. */
+  declaredKg?: number
+  notes?: string
+}
+
+const MODELS: (Omit<ModelSeed, 'userId'> & { key: string })[] = [
+  {
+    key: 'barbell',
+    name: 'Олимпийская штанга',
+    kind: 'barbell',
+    barWeight: 20,
+    step: 2.5,
+    maxWeight: 200,
+    notes: 'Шаг 2.5 принят по умолчанию — проверить, есть ли блины 1.25',
+  },
+  {
+    key: 'dumbbells',
+    name: 'Гантели',
+    kind: 'dumbbell',
+    ladder: CITYFIT_DUMBBELLS,
+    notes: 'Ряд: 1..10 через 1, дальше через 2 до 40. Проверить верх ряда',
+  },
+  {
+    key: 'ez',
+    name: 'EZ-гриф',
+    kind: 'barbell',
+    barWeight: 5,
+    step: 2.5,
+    maxWeight: 60,
+    notes: 'Вес грифа под вопросом: обычный EZ весит 7-10. На 45 кг это разница в 10%',
+  },
+  { key: 'pec_deck', name: 'Бабочка', kind: 'stack', step: 5, minWeight: 5, maxWeight: 100 },
+  { key: 'cable', name: 'Кроссовер', kind: 'cable', step: 5, minWeight: 5, maxWeight: 100 },
+  {
+    key: 'ab',
+    name: 'Тренажёр на пресс',
+    kind: 'stack',
+    step: 5,
+    minWeight: 5,
+    maxWeight: 100,
+  },
+]
+
+const EXERCISES: ExerciseSeed[] = [
+  {
+    key: 'bench',
+    name: 'Жим лёжа',
+    pattern: 'horizontal_press',
+    model: 'barbell',
+    declaredKg: 100,
+  },
+  {
+    key: 'db45',
+    name: 'Жим гантелей под наклоном 45°',
+    pattern: 'incline_press',
+    model: 'dumbbells',
+    declaredKg: 36,
+  },
+  // 30° и альтернативы сведения — вес не назывался, заполнится с первой тренировки
+  {
+    key: 'db30',
+    name: 'Жим гантелей под наклоном 30°',
+    pattern: 'incline_press',
+    model: 'dumbbells',
+  },
+  {
+    key: 'pec',
+    name: 'Сведение в бабочке',
+    pattern: 'chest_fly',
+    model: 'pec_deck',
+    notes: 'Вес не помнит: называл 30-70',
+  },
+  { key: 'cross', name: 'Сведение на кроссовере', pattern: 'chest_fly', model: 'cable' },
+  { key: 'db_fly', name: 'Разводка гантелями лёжа', pattern: 'chest_fly', model: 'dumbbells' },
+  {
+    key: 'curl_seated',
+    name: 'Бицепс гантелями сидя',
+    pattern: 'biceps_curl',
+    model: 'dumbbells',
+    declaredKg: 14,
+  },
+  {
+    key: 'curl_ez',
+    name: 'Бицепс с EZ-грифом стоя',
+    pattern: 'biceps_curl',
+    model: 'ez',
+    declaredKg: 45,
+  },
+  {
+    key: 'hammer',
+    name: 'Молоточки',
+    pattern: 'biceps_curl',
+    model: 'dumbbells',
+    declaredKg: 14,
+  },
+  {
+    key: 'abs',
+    name: 'Пресс в тренажёре',
+    pattern: 'trunk_flexion',
+    model: 'ab',
+    declaredKg: 50,
+  },
+]
+
+type ItemSeed = {
+  pattern: string
+  preferred: string
+  scheme: 'straight' | 'ramp'
+  sets?: number
+  rampPercents?: number[]
+  rampReps?: number[]
+  repMin: number
+  repMax: number
+  note?: string
+}
+
+const ITEMS: ItemSeed[] = [
+  {
+    pattern: 'horizontal_press',
+    preferred: 'bench',
+    scheme: 'ramp',
+    rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+    rampReps: [12, 12, 10, 10],
+    repMin: 5,
+    repMax: 6,
+    note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
+  },
+  {
+    pattern: 'incline_press',
+    preferred: 'db45',
+    scheme: 'ramp',
+    rampPercents: [0.6, 0.72, 0.89, 1],
+    rampReps: [12, 12, 12],
+    repMin: 10,
+    repMax: 12,
+  },
+  {
+    pattern: 'incline_press',
+    preferred: 'db30',
+    scheme: 'straight',
+    sets: 2,
+    repMin: 10,
+    repMax: 12,
+  },
+  {
+    pattern: 'chest_fly',
+    preferred: 'pec',
+    scheme: 'straight',
+    sets: 4,
+    repMin: 10,
+    repMax: 12,
+  },
+  {
+    pattern: 'biceps_curl',
+    preferred: 'curl_seated',
+    scheme: 'straight',
+    sets: 4,
+    repMin: 12,
+    repMax: 15,
+  },
+  {
+    pattern: 'biceps_curl',
+    preferred: 'curl_ez',
+    scheme: 'straight',
+    sets: 4,
+    repMin: 12,
+    repMax: 15,
+  },
+  {
+    pattern: 'biceps_curl',
+    preferred: 'hammer',
+    scheme: 'straight',
+    sets: 3,
+    repMin: 12,
+    repMax: 15,
+  },
+  {
+    pattern: 'trunk_flexion',
+    preferred: 'abs',
+    scheme: 'ramp',
+    rampPercents: [0.6, 0.8, 1],
+    rampReps: [15, 15],
+    repMin: 12,
+    repMax: 15,
+  },
+]
+
+const GYM_NAME = 'CityFit Westfield'
+const TEMPLATE_NAME = 'Грудь + бицепс'
+
+async function findOrCreateGym() {
+  const [found] = await db
+    .select()
+    .from(gyms)
+    .where(and(eq(gyms.userId, userId), eq(gyms.name, GYM_NAME)))
+  if (found) return { gym: found, created: false }
+  const [gym] = await db.insert(gyms).values({ userId, name: GYM_NAME }).returning()
+  return { gym, created: true }
+}
+
+const { gym, created: gymCreated } = await findOrCreateGym()
+
+const modelIds = new Map<string, string>()
+for (const { key, ...m } of MODELS) {
+  const [found] = await db
+    .select()
+    .from(equipmentModels)
+    .where(and(eq(equipmentModels.userId, userId), eq(equipmentModels.name, m.name)))
+  const row =
+    found ??
+    (
+      await db
+        .insert(equipmentModels)
+        .values({ ...m, userId })
+        .returning()
+    )[0]
+  modelIds.set(key, row.id)
+
+  const [link] = await db
+    .select()
+    .from(gymEquipment)
+    .where(and(eq(gymEquipment.gymId, gym.id), eq(gymEquipment.equipmentModelId, row.id)))
+  if (!link) {
+    await db.insert(gymEquipment).values({ gymId: gym.id, equipmentModelId: row.id })
+  }
+}
+
+const exerciseIds = new Map<string, string>()
+for (const e of EXERCISES) {
+  const [found] = await db
+    .select()
+    .from(exercises)
+    .where(and(eq(exercises.userId, userId), eq(exercises.name, e.name)))
+  const row =
+    found ??
+    (
+      await db
+        .insert(exercises)
+        .values({
+          userId,
+          name: e.name,
+          patternCode: e.pattern,
+          equipmentModelId: modelIds.get(e.model)!,
+          declaredWorkingKg: e.declaredKg ?? null,
+          notes: e.notes,
+        })
+        .returning()
+    )[0]
+
+  // Заявленный вес обновляем и на существующих — это справочная величина,
+  // истории она не касается.
+  if (found && found.declaredWorkingKg !== (e.declaredKg ?? null)) {
+    await db
+      .update(exercises)
+      .set({ declaredWorkingKg: e.declaredKg ?? null })
+      .where(eq(exercises.id, found.id))
+  }
+  exerciseIds.set(e.key, row.id)
+}
+
+const [existingTemplate] = await db
+  .select()
+  .from(templates)
+  .where(and(eq(templates.userId, userId), eq(templates.name, TEMPLATE_NAME)))
+
+let templateCreated = false
+if (!existingTemplate) {
+  const [tpl] = await db.insert(templates).values({ userId, name: TEMPLATE_NAME }).returning()
+  await db.insert(templateItems).values(
+    ITEMS.map((it, i) => ({
+      templateId: tpl.id,
+      position: i,
+      patternCode: it.pattern,
+      preferredExerciseId: exerciseIds.get(it.preferred)!,
+      scheme: it.scheme,
+      sets: it.sets ?? 3,
+      rampPercents: it.rampPercents,
+      rampReps: it.rampReps,
+      repMin: it.repMin,
+      repMax: it.repMax,
+      note: it.note,
+    })),
+  )
+  templateCreated = true
+}
+
+console.log(`Пользователь:  ${email}`)
+console.log(`Зал:           ${GYM_NAME} ${gymCreated ? '(создан)' : '(уже был)'}`)
+console.log(`Оборудование:  ${MODELS.length}`)
+console.log(`Упражнения:    ${EXERCISES.length}`)
+console.log(
+  `Шаблон:        ${TEMPLATE_NAME} ${templateCreated ? '(создан)' : '(уже был)'}, пунктов ${ITEMS.length}`,
+)
