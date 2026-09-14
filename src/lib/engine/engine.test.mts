@@ -663,3 +663,66 @@ describe('провал выводится из повторов, а не из к
     assert.equal(isFailed({ weightKg: 50, reps: 12, feedback: 'failed' }, 10), true)
   })
 })
+
+describe('грубый шаг для подводящих', () => {
+  // Штанга: прогрессия по 2.5, подводящие округляются до пятёрки.
+  const bar: WeightGrid = { units: 'kg', step: 2.5, rampStep: 5, barWeight: 20, max: 200 }
+
+  const plan = (topKg: number) =>
+    prescribe({
+      scheme: 'ramp',
+      grid: bar,
+      repMin: 5,
+      repMax: 6,
+      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+      rampReps: [12, 12, 10, 10],
+      lastSessionSets: sets([topKg, 6, 'limit']),
+      daysSincePattern: 7,
+      painRecent: false,
+      firstForMuscleGroup: false,
+    })
+
+  it('подводящие идут по пятёркам, верхний сохраняет точность', () => {
+    const p = plan(102.5)
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [20, 60, 80, 90, 102.5],
+      'вешать 82.5 ради разминки — возня с блинами по 1.25 на сторону',
+    )
+  })
+
+  it('прогрессия по-прежнему идёт мелким шагом', () => {
+    // Закрыл верх диапазона без надрыва -> +2.5, а не +5.
+    const p = prescribe({
+      scheme: 'ramp',
+      grid: bar,
+      repMin: 5,
+      repMax: 6,
+      rampPercents: [0.6, 1],
+      lastSessionSets: sets([100, 6, 'on_target']),
+      daysSincePattern: 7,
+      painRecent: false,
+      firstForMuscleGroup: false,
+    })
+    assert.equal(p.top?.weight, 102.5)
+  })
+
+  it('без rampStep ведёт себя как раньше', () => {
+    const fine: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
+    const p = prescribe({
+      scheme: 'ramp',
+      grid: fine,
+      repMin: 5,
+      repMax: 6,
+      rampPercents: [0.6, 0.8, 1],
+      lastSessionSets: sets([102.5, 6, 'limit']),
+      daysSincePattern: 7,
+      painRecent: false,
+      firstForMuscleGroup: false,
+    })
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [62.5, 82.5, 102.5],
+    )
+  })
+})

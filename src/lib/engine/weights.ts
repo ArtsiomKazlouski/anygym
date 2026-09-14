@@ -13,6 +13,11 @@ export type WeightGrid = {
   units: Units
   /** Шаг стека или блинов. Для штанги — минимальная прибавка (два блина). */
   step?: number | null
+  /**
+   * Шаг для подводящих и разминочных подходов, если он грубее рабочего.
+   * Пусто — берётся step.
+   */
+  rampStep?: number | null
   min?: number | null
   max?: number | null
   /** Явный ряд весов — гантели, где шаг неравномерный. */
@@ -32,6 +37,17 @@ export type SnappedWeight = {
 }
 
 export const KG_PER_LB = 0.45359237
+
+/**
+ * Сетка для подводящих и разминочных подходов.
+ *
+ * Шаг отвечает за две разные задачи: точность прибавки при прогрессии
+ * и округление подводящих. Рабочему весу точность нужна, подводящему — нет,
+ * и возня с мелкими блинами ради разминки ничего не даёт.
+ */
+export function rampGrid(grid: WeightGrid): WeightGrid {
+  return grid.rampStep ? { ...grid, step: grid.rampStep } : grid
+}
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 

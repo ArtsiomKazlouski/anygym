@@ -53,6 +53,9 @@ const MODELS: (Omit<ModelSeed, 'userId'> & { key: string })[] = [
     kind: 'barbell',
     barWeight: 20,
     step: 2.5,
+    // Подводящие округляются до пятёрки: вешать 82.5 ради разминки — возня
+    // с блинами по 1.25 на сторону, а точность там ничего не даёт.
+    rampStep: 5,
     maxWeight: 200,
     notes: 'Шаг 2.5 принят по умолчанию — проверить, есть ли блины 1.25',
   },
@@ -258,6 +261,23 @@ for (const { key, ...m } of MODELS) {
         .returning()
     )[0]
   modelIds.set(key, row.id)
+
+  // Сетку весов на уже заведённых моделях подтягиваем: это справочные
+  // величины про саму железку, истории они не касаются.
+  if (found) {
+    await db
+      .update(equipmentModels)
+      .set({
+        step: m.step ?? null,
+        rampStep: m.rampStep ?? null,
+        minWeight: m.minWeight ?? null,
+        maxWeight: m.maxWeight ?? null,
+        barWeight: m.barWeight ?? null,
+        ladder: m.ladder ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(equipmentModels.id, found.id))
+  }
 
   const [link] = await db
     .select()

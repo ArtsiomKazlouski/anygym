@@ -15,6 +15,7 @@ export function resolveGrid(model: Model, instance?: Instance | null): WeightGri
   return {
     units: instance?.unitsOverride ?? model.units,
     step: instance?.stepOverride ?? model.step,
+    rampStep: instance?.rampStepOverride ?? model.rampStep,
     min: instance?.minOverride ?? model.minWeight,
     max: instance?.maxOverride ?? model.maxWeight,
     ladder: instance?.ladderOverride ?? model.ladder,

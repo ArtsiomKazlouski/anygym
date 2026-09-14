@@ -43,6 +43,13 @@
       "when": 1789383178448,
       "tag": "0005_extra-sets",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789416406723,
+      "tag": "0006_ramp-step",
+      "breakpoints": true
     }
   ]
 }

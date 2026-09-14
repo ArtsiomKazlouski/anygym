@@ -5,7 +5,7 @@
  * Никаких обращений к БД, поэтому всё поведение проверяется тестами.
  */
 
-import { type SnappedWeight, type WeightGrid, snapKg, stepKg } from './weights.ts'
+import { type SnappedWeight, type WeightGrid, rampGrid, snapKg, stepKg } from './weights.ts'
 
 export type SetFeedback = 'easy' | 'on_target' | 'limit' | 'failed'
 
@@ -171,6 +171,7 @@ export function interSessionDelta(
 /** Строит план подходов от верхнего веса. */
 function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boolean): SetPlan[] {
   const { grid, repMin, repMax } = ctx
+  const coarse = rampGrid(grid)
   const plan: SetPlan[] = []
 
   if (ctx.scheme === 'ramp') {
@@ -180,7 +181,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
     let previousKg = -Infinity
     percents.forEach((p, i) => {
       const isTop = i === percents.length - 1
-      const weight = isTop ? top : snapKg(top.weightKg * p, grid, 'nearest')
+      const weight = isTop ? top : snapKg(top.weightKg * p, coarse, 'nearest')
 
       // На грубой сетке соседние доли схлопываются: 0.85 и 0.9 от 100 при шаге 20
       // дают 80 и 100. Подводящая ступень обязана быть строго выше предыдущей
@@ -208,7 +209,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
     if (extraWarmup && first && first.weight.weightKg > top.weightKg * WARMUP_FACTOR) {
       plan.unshift({
         role: 'warmup',
-        weight: snapKg(top.weightKg * WARMUP_FACTOR, grid, 'down'),
+        weight: snapKg(top.weightKg * WARMUP_FACTOR, coarse, 'down'),
         reps: WARMUP_REPS,
       })
     }
@@ -219,7 +220,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
   if (extraWarmup) {
     plan.push({
       role: 'warmup',
-      weight: snapKg(top.weightKg * WARMUP_FACTOR, grid, 'down'),
+      weight: snapKg(top.weightKg * WARMUP_FACTOR, coarse, 'down'),
       reps: WARMUP_REPS,
     })
   }

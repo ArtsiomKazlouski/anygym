@@ -164,6 +164,12 @@ export const equipmentModels = pgTable(
     units: weightUnits('units').notNull().default('kg'),
     /** Шаг дискретизации для stack / plate_loaded / cable. */
     step: numeric('step', { precision: 7, scale: 2, mode: 'number' }),
+    /**
+     * Шаг для подводящих и разминочных подходов, если он грубее рабочего.
+     * Штанга растёт по 2.5, но вешать 82.5 ради разминки — возня с блинами
+     * по 1.25 на сторону. Пусто — берётся step.
+     */
+    rampStep: numeric('ramp_step', { precision: 7, scale: 2, mode: 'number' }),
     minWeight: numeric('min_weight', {
       precision: 7,
       scale: 2,
@@ -224,6 +230,11 @@ export const gymEquipment = pgTable(
     locationNote: text('location_note'),
     unitsOverride: weightUnits('units_override'),
     stepOverride: numeric('step_override', {
+      precision: 7,
+      scale: 2,
+      mode: 'number',
+    }),
+    rampStepOverride: numeric('ramp_step_override', {
       precision: 7,
       scale: 2,
       mode: 'number',
