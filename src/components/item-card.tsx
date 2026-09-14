@@ -1,4 +1,5 @@
 import type { setLogs } from '@/db/schema'
+import { gridOptions } from '@/lib/engine'
 import type { ItemPlan } from '@/lib/session/plan'
 import {
   addSet,
@@ -343,6 +344,16 @@ function SetForm({
   const repTarget = repLo === repHi ? `${repLo}` : `${repLo}–${repHi}`
   const units = current?.weight.units ?? plan.grid.units
 
+  // Вес выбирается барабаном из того, что на этой железке физически есть:
+  // список строится из той же сетки, что и подсказки движка, поэтому
+  // несуществующий вес выбрать невозможно.
+  const weights = gridOptions(plan.grid, { around: current?.weight.weightKg })
+  const repChoices = Array.from({ length: Math.max(30, repHi + 10) }, (_, i) => i + 1)
+
+  const field =
+    'w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl ' +
+    'font-semibold tabular-nums dark:border-white/20'
+
   return (
     <form action={logSet} className="mt-4 flex flex-col gap-3">
       <input type="hidden" name="itemId" value={itemId} />
@@ -362,29 +373,46 @@ function SetForm({
           <span className="text-xs opacity-50">
             Вес, {units} · <span className="whitespace-nowrap">{ROLE_LABEL[role]}</span>
           </span>
-          <input
-            name="weight"
-            type="number"
-            inputMode="decimal"
-            step="0.5"
-            required
-            placeholder="—"
-            defaultValue={current?.weight.weight ?? ''}
-            className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl font-semibold tabular-nums dark:border-white/20"
-          />
+          {weights.length > 0 ? (
+            <select
+              name="weight"
+              required
+              defaultValue={current?.weight.weight ?? ''}
+              className={field}
+            >
+              {current == null && <option value="">—</option>}
+              {weights.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
+          ) : (
+            // Сетка железки неизвестна — остаётся ввод руками.
+            <input
+              name="weight"
+              type="number"
+              inputMode="decimal"
+              step="0.5"
+              required
+              placeholder="—"
+              defaultValue={current?.weight.weight ?? ''}
+              className={field}
+            />
+          )}
         </label>
         <label className="flex w-32 flex-col gap-1">
           <span className="text-xs opacity-50">
             Повторы · цель <span className="whitespace-nowrap">{repTarget}</span>
           </span>
-          <input
-            name="reps"
-            type="number"
-            inputMode="numeric"
-            // Сколько вышло в прошлом подходе — вероятнее, чем верх диапазона.
-            defaultValue={lastReps ?? repHi}
-            className="w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-3xl font-semibold tabular-nums dark:border-white/20"
-          />
+          {/* Сколько вышло в прошлом подходе — вероятнее, чем верх диапазона. */}
+          <select name="reps" required defaultValue={lastReps ?? repHi} className={field}>
+            {repChoices.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

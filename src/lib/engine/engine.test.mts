@@ -12,7 +12,7 @@ import {
   type LoggedSet,
   type Prescription,
 } from './prescribe.ts'
-import { snapKg, stepKg, type WeightGrid } from './weights.ts'
+import { gridOptions, snapKg, stepKg, type WeightGrid } from './weights.ts'
 
 /** Грузоблок: равномерный шаг от минимума. */
 const stack = (step: number, min = step, max = 200): WeightGrid => ({
@@ -724,5 +724,44 @@ describe('грубый шаг для подводящих', () => {
       p.sets.map((s) => s.weight.weight),
       [62.5, 82.5, 102.5],
     )
+  })
+})
+
+describe('список достижимых весов', () => {
+  it('для гантелей отдаёт ряд как есть', () => {
+    const grid: WeightGrid = { units: 'kg', ladder: [2, 4, 6, 8, 10] }
+    assert.deepEqual(gridOptions(grid), [2, 4, 6, 8, 10])
+  })
+
+  it('для стека перечисляет от минимума до максимума', () => {
+    assert.deepEqual(gridOptions(stack(5, 5, 30)), [5, 10, 15, 20, 25, 30])
+  })
+
+  it('для штанги начинает с грифа', () => {
+    const bar: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 30 }
+    assert.deepEqual(gridOptions(bar), [20, 22.5, 25, 27.5, 30])
+  })
+
+  it('в списке нет весов вне сетки', () => {
+    for (const w of gridOptions(stack(5, 5, 200))) {
+      assert.equal(w % 5, 0, `${w} не кратен шагу`)
+    }
+  })
+
+  it('при длинном списке даёт окно вокруг текущего веса', () => {
+    const opts = gridOptions(stack(1, 1, 5000), { around: 100, limit: 20 })
+    assert.equal(opts.length, 20)
+    assert.ok(opts.includes(100), 'текущий вес обязан быть в списке')
+  })
+
+  it('без потолка строит окно от текущего веса', () => {
+    const grid: WeightGrid = { units: 'kg', step: 5, min: 5 }
+    const opts = gridOptions(grid, { around: 60, limit: 10 })
+    assert.equal(opts.length, 10)
+    assert.ok(opts.includes(60))
+  })
+
+  it('при неизвестной сетке отдаёт пусто — остаётся ввод руками', () => {
+    assert.deepEqual(gridOptions({ units: 'kg' }), [])
   })
 })

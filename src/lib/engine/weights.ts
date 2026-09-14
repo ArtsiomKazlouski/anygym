@@ -158,3 +158,47 @@ export function stepKg(currentKg: number, grid: WeightGrid, direction: 1 | -1): 
     direction === 1 ? 'up' : 'down',
   )
 }
+
+/**
+ * Все достижимые веса этой железки — для выбора барабаном вместо ввода руками.
+ *
+ * Список строится из той же сетки, что и подсказки движка, поэтому выбрать
+ * несуществующий вес невозможно в принципе.
+ *
+ * `around` — вес, вокруг которого окно, если сетка не ограничена сверху или
+ * вариантов слишком много. `limit` — сколько вариантов максимум.
+ */
+export function gridOptions(
+  grid: WeightGrid,
+  opts: { around?: number | null; limit?: number } = {},
+): number[] {
+  const limit = opts.limit ?? 160
+  const ladder = ladderOf(grid)
+  if (ladder) return ladder
+
+  if (!grid.step || grid.step <= 0) return []
+
+  const base = gridBase(grid)
+  const step = grid.step
+
+  // Считаем в индексах ступеней, а не строим список целиком: сетка бывает
+  // огромной (шаг 1 кг до двухсот), и обрезать её до центрирования нельзя —
+  // окно уедет в начало и текущий вес из него выпадет.
+  const lastIndex =
+    grid.max != null ? Math.max(0, Math.floor((grid.max - base) / step + 1e-9)) : null
+  const total = lastIndex != null ? lastIndex + 1 : Infinity
+
+  let from = 0
+  if (total > limit) {
+    const center = opts.around != null ? fromKg(opts.around, grid.units) : base
+    const centerIndex = Math.max(0, Math.round((center - base) / step))
+    from = Math.max(0, centerIndex - Math.floor(limit / 2))
+    if (lastIndex != null) from = Math.min(from, lastIndex - limit + 1)
+  }
+
+  const count = Math.min(limit, total)
+  return Array.from(
+    { length: count },
+    (_, i) => Math.round((base + (from + i) * step) * 100) / 100,
+  )
+}
