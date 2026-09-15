@@ -6,7 +6,6 @@ import {
   type SetPlan,
   type WeightGrid,
   capRamp,
-  liftAfterWarmup,
   nextSet,
   prescribe,
   reanchorRamp,
@@ -60,7 +59,6 @@ export async function buildItemPlan(args: {
   repMin: number
   repMax: number
   extraSets: number
-  firstForMuscleGroup: boolean
   logged: LoggedRow[]
 }): Promise<ItemPlan | null> {
   const [exercise] = await db
@@ -103,7 +101,6 @@ export async function buildItemPlan(args: {
     daysSincePattern: days,
     painRecent: pain,
     probeBaseKg: probe,
-    firstForMuscleGroup: args.firstForMuscleGroup,
   })
 
   const notes = [...prescription.notes]
@@ -183,16 +180,6 @@ export async function buildItemPlan(args: {
       notes.push(
         `Ты поставил ${previous.weight} вместо ${previousPlan.weight.weight} — остаток пересчитан`,
       )
-    }
-  }
-
-  // Разминка тяжелее рабочего веса — значит рабочий занижен, и спорить
-  // с уже поднятым весом бессмысленно.
-  if (previous?.kind === 'warmup') {
-    const lift = liftAfterWarmup({ sets: effective, warmupKg: previous.weightKg, grid })
-    effective = lift.sets
-    if (lift.lifted) {
-      notes.push(`Размялся на ${previous.weight} — рабочий вес подтянут к этому`)
     }
   }
 

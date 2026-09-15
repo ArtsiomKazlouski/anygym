@@ -4,7 +4,6 @@ import { AddExercise } from '@/components/add-exercise'
 import { DeleteSession } from '@/components/delete-session'
 import { ItemCard } from '@/components/item-card'
 import { SessionHeader } from '@/components/session-header'
-import { muscleGroupOf } from '@/lib/patterns'
 import {
   alternativesFor,
   equipmentInGym,
@@ -37,14 +36,6 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const currentId =
     sorted.find((r) => r.item.status === 'active')?.item.id ??
     sorted.find((r) => r.item.status === 'pending')?.item.id
-
-  // Разминка привязана к мышечной группе: смотрим, работали ли её уже сегодня.
-  const workedGroups = new Set(
-    data.items
-      .filter((r) => (data.logsByItem.get(r.item.id)?.length ?? 0) > 0)
-      .map((r) => muscleGroupOf(r.item.patternCode))
-      .filter(Boolean),
-  )
 
   const cards = await Promise.all(
     sorted.map(async (row) => {
@@ -84,7 +75,6 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               repMin: row.item.repMin,
               repMax: row.item.repMax,
               extraSets: row.item.extraSets,
-              firstForMuscleGroup: !workedGroups.has(muscleGroupOf(row.item.patternCode)),
               logged,
             })
           : null

@@ -31,9 +31,7 @@ export type LoggedSet = {
 
 /** Коэффициенты вынесены сюда, чтобы калибровать их по накопленным данным. */
 export const PROBE_FACTOR = 0.6
-export const WARMUP_FACTOR = 0.55
 export const PAIN_BACKOFF_FACTOR = 0.9
-export const WARMUP_REPS: readonly [number, number] = [8, 10]
 export const RESET_AFTER_DAYS = 90
 
 /** Откат за паузу: дни без работы на ПАТТЕРН -> множитель. */
@@ -73,8 +71,6 @@ export type PrescribeContext = {
   declaredWorkingKg?: number | null
   /** Рабочий вес на другом упражнении того же паттерна — база для разведки. */
   probeBaseKg?: number | null
-  /** Первое ли это упражнение на данную мышечную группу в текущей сессии. */
-  firstForMuscleGroup: boolean
 }
 
 export type SetPlan = {
@@ -166,8 +162,15 @@ export function interSessionDelta(
   return 0
 }
 
-/** Строит план подходов от верхнего веса. */
-function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boolean): SetPlan[] {
+/**
+ * Строит план подходов от верхнего веса.
+ *
+ * Отдельных разминочных подходов нет намеренно. Разминка нужна по сути
+ * в одном движении — штанге, — а там её роль уже играет рампа: гриф, 60, 80,
+ * 90 и есть подводка. Держать ради одного случая отдельный вид подхода
+ * и правило «первое упражнение на мышечную группу» оказалось дороже пользы.
+ */
+function buildSets(ctx: PrescribeContext, top: SnappedWeight): SetPlan[] {
   const { grid, repMin, repMax } = ctx
   const coarse = rampGrid(grid)
   const plan: SetPlan[] = []
@@ -200,26 +203,7 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight, extraWarmup: boole
       plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
     }
 
-    // Рампа обычно сама себе разминка. Отдельный подход нужен только если
-    // она начинается высоко — а это бывает на гантелях с редким рядом.
-    const first = plan[0]
-    if (extraWarmup && first && first.weight.weightKg > top.weightKg * WARMUP_FACTOR) {
-      plan.unshift({
-        role: 'warmup',
-        weight: snapKg(top.weightKg * WARMUP_FACTOR, coarse, 'down'),
-        reps: WARMUP_REPS,
-      })
-    }
-
     return plan
-  }
-
-  if (extraWarmup) {
-    plan.push({
-      role: 'warmup',
-      weight: snapKg(top.weightKg * WARMUP_FACTOR, coarse, 'down'),
-      reps: WARMUP_REPS,
-    })
   }
 
   for (let i = 0; i < (ctx.sets ?? 3) + (ctx.extraSets ?? 0); i++) {
@@ -308,16 +292,10 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     top = snapKg(topKg, grid, 'down')
   }
 
-  const needsExtraWarmup =
-    ctx.firstForMuscleGroup ||
-    source === 'probe' ||
-    source === 'deload' ||
-    source === 'pain_backoff'
-
   return {
     scheme: ctx.scheme,
     top,
-    sets: buildSets(ctx, top, needsExtraWarmup),
+    sets: buildSets(ctx, top),
     source,
     preDeloadKg,
     notes,
@@ -395,40 +373,6 @@ export function nextSet(args: {
       }
     case 'failed':
       return { action: 'continue', weight: stepKg(currentKg, grid, -1) }
-  }
-}
-
-/**
- * Разминка тяжелее рабочего веса означает, что рабочий занижен.
- *
- * Разминаются легче, чем работают — иначе это не разминка. Если движок
- * предложил рабочие 10, а человек размялся на 12, спорить с ним бессмысленно:
- * двенадцать он только что поднял, а десять ему навязывают из-за неудачной
- * прошлой тренировки. Остаток подтягивается к фактическому весу разминки.
- *
- * Обратное неверно: лёгкая разминка ничего не говорит о рабочем весе
- * и вниз его не тянет.
- */
-export function liftAfterWarmup(args: {
-  sets: SetPlan[]
-  warmupKg: number
-  grid: WeightGrid
-}): { sets: SetPlan[]; lifted: boolean } {
-  const { sets, warmupKg, grid } = args
-  const working = sets.filter((s) => s.role !== 'warmup')
-  if (working.length === 0) return { sets, lifted: false }
-
-  const lightest = Math.min(...working.map((s) => s.weight.weightKg))
-  if (warmupKg <= lightest + 1e-9) return { sets, lifted: false }
-
-  const raised = snapKg(warmupKg, grid, 'nearest')
-  return {
-    sets: sets.map((s) =>
-      s.role === 'warmup' || s.weight.weightKg >= warmupKg - 1e-9
-        ? s
-        : { ...s, weight: raised },
-    ),
-    lifted: true,
   }
 }
 

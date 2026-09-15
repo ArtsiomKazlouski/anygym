@@ -8,7 +8,6 @@ import {
   prescribe,
   capRamp,
   isFailed,
-  liftAfterWarmup,
   reanchorRamp,
   type LoggedSet,
   type Prescription,
@@ -32,7 +31,6 @@ const dumbbells: WeightGrid = {
 const sets = (...s: [number, number, LoggedSet['feedback']][]): LoggedSet[] =>
   s.map(([weightKg, reps, feedback]) => ({ weightKg, reps, feedback }))
 
-const warmupOf = (p: Prescription) => p.sets.find((s) => s.role === 'warmup')
 const workingOf = (p: Prescription) => p.sets.filter((s) => s.role === 'working')
 const rampOf = (p: Prescription) => p.sets.filter((s) => s.role === 'ramp')
 
@@ -130,11 +128,9 @@ describe('примеры из DESIGN.md, раздел 6', () => {
       lastSessionSets: sets([50, 12, 'easy'], [50, 12, 'on_target'], [50, 12, 'on_target']),
       daysSincePattern: 4,
       painRecent: false,
-      firstForMuscleGroup: true,
     })
     assert.equal(p.source, 'history')
     assert.equal(p.top?.weight, 55)
-    assert.equal(warmupOf(p)?.weight.weight, 30)
   })
 
   it('2. незнакомая модель — разведка от соседнего тренажёра', () => {
@@ -147,11 +143,9 @@ describe('примеры из DESIGN.md, раздел 6', () => {
       daysSincePattern: 3,
       painRecent: false,
       probeBaseKg: 60,
-      firstForMuscleGroup: false,
     })
     assert.equal(p.source, 'probe')
     assert.equal(p.top?.weight, 35)
-    assert.ok(warmupOf(p), 'на незнакомой железке разминка предлагается всегда')
   })
 
   it('3. пауза 30 дней: −10%, и возврат к прежнему весу на фидбеке «легко»', () => {
@@ -164,7 +158,6 @@ describe('примеры из DESIGN.md, раздел 6', () => {
       lastSessionSets: sets([120, 10, 'on_target'], [120, 10, 'on_target']),
       daysSincePattern: 30,
       painRecent: false,
-      firstForMuscleGroup: true,
     })
     assert.equal(p.source, 'deload')
     assert.equal(p.top?.weight, 110)
@@ -189,7 +182,6 @@ describe('примеры из DESIGN.md, раздел 6', () => {
       lastSessionSets: sets([40, 10, 'on_target'], [40, 10, 'on_target']),
       daysSincePattern: 7,
       painRecent: true,
-      firstForMuscleGroup: false,
     })
     assert.equal(p.source, 'pain_backoff')
     assert.equal(p.top?.weight, 35)
@@ -234,7 +226,6 @@ describe('граничные случаи', () => {
       lastSessionSets: [],
       daysSincePattern: null,
       painRecent: false,
-      firstForMuscleGroup: true,
     })
     assert.equal(p.source, 'manual')
     assert.equal(p.top, null)
@@ -250,7 +241,6 @@ describe('граничные случаи', () => {
       daysSincePattern: 200,
       painRecent: false,
       probeBaseKg: 80,
-      firstForMuscleGroup: true,
     })
     assert.equal(p.source, 'probe')
     assert.equal(p.top?.weight, 50, '80 * 0.6 = 48 -> ближайшая ступень 50')
@@ -268,7 +258,6 @@ describe('граничные случаи', () => {
       lastSessionSets: sets([100, 10, 'on_target']),
       daysSincePattern: 14,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     assert.equal(p.top?.weight, 100)
   })
@@ -283,7 +272,6 @@ describe('граничные случаи', () => {
       lastSessionSets: sets([100, 10, 'on_target']),
       daysSincePattern: 60,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     assert.equal(p.top?.weight, 80)
   })
@@ -302,7 +290,6 @@ describe('граничные случаи', () => {
             lastSessionSets: sets([start, 10, 'on_target']),
             daysSincePattern: days,
             painRecent: false,
-            firstForMuscleGroup: false,
           })
           assert.ok(
             p.top!.weightKg <= start + 1e-9,
@@ -337,7 +324,6 @@ describe('рампа', () => {
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: true,
     })
 
     assert.equal(p.top?.weight, 100)
@@ -365,7 +351,6 @@ describe('рампа', () => {
       lastSessionSets: sets([36, 10, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
 
     assert.deepEqual(
@@ -384,7 +369,6 @@ describe('рампа', () => {
       lastSessionSets: sets([30, 12, 'easy']),
       daysSincePattern: 5,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     for (const s of p.sets) {
       assert.ok(
@@ -404,41 +388,10 @@ describe('рампа', () => {
       lastSessionSets: sets([100, 10, 'on_target']),
       daysSincePattern: 5,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     const weights = p.sets.map((s) => s.weight.weight)
     assert.deepEqual(weights, [...new Set(weights)], 'повторяющихся ступеней быть не должно')
     assert.equal(weights[weights.length - 1], 100)
-  })
-
-  it('не добавляет отдельную разминку, когда рампа сама начинается низко', () => {
-    const p = prescribe({
-      scheme: 'ramp',
-      grid: olympicBar,
-      repMin: 5,
-      repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      lastSessionSets: sets([100, 6, 'limit']),
-      daysSincePattern: 7,
-      painRecent: false,
-      firstForMuscleGroup: true,
-    })
-    assert.equal(warmupOf(p), undefined)
-  })
-
-  it('добавляет разминку, если рампа стартует высоко', () => {
-    const p = prescribe({
-      scheme: 'ramp',
-      grid: olympicBar,
-      repMin: 5,
-      repMax: 6,
-      rampPercents: [0.85, 1],
-      lastSessionSets: sets([100, 6, 'limit']),
-      daysSincePattern: 7,
-      painRecent: false,
-      firstForMuscleGroup: true,
-    })
-    assert.ok(warmupOf(p), 'старт с 85% без подводки — нужна разминка')
   })
 
   it('проваленный подводящий отменяет верхний подход', () => {
@@ -451,7 +404,6 @@ describe('рампа', () => {
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     const r = capRamp({ sets: p.sets, doneIndex: 1, feedback: 'failed', grid: olympicBar })
     assert.deepEqual(r.remaining, [])
@@ -468,7 +420,6 @@ describe('рампа', () => {
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     // подводящий 80 дался на пределе -> выше 82.5 сегодня не идём
     const r = capRamp({ sets: p.sets, doneIndex: 1, feedback: 'limit', grid: olympicBar })
@@ -488,7 +439,6 @@ describe('заявленный вес', () => {
     lastSessionSets: [],
     daysSincePattern: null,
     painRecent: false,
-    firstForMuscleGroup: false,
   }
 
   it('стартует с веса, названного пользователем', () => {
@@ -539,7 +489,6 @@ describe('пересчёт рампы под фактический вес', () 
       lastSessionSets: sets([100, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     }).sets
 
   it('двигает остаток, когда вес изменён на показательной ступени', () => {
@@ -681,7 +630,6 @@ describe('грубый шаг для подводящих', () => {
       lastSessionSets: sets([topKg, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
 
   it('подводящие идут по пятёркам, верхний сохраняет точность', () => {
@@ -704,7 +652,6 @@ describe('грубый шаг для подводящих', () => {
       lastSessionSets: sets([100, 6, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     assert.equal(p.top?.weight, 102.5)
   })
@@ -720,7 +667,6 @@ describe('грубый шаг для подводящих', () => {
       lastSessionSets: sets([102.5, 6, 'limit']),
       daysSincePattern: 7,
       painRecent: false,
-      firstForMuscleGroup: false,
     })
     assert.deepEqual(
       p.sets.map((s) => s.weight.weight),
@@ -765,53 +711,5 @@ describe('список достижимых весов', () => {
 
   it('при неизвестной сетке отдаёт пусто — остаётся ввод руками', () => {
     assert.deepEqual(gridOptions({ units: 'kg' }), [])
-  })
-})
-
-describe('разминка тяжелее рабочего веса', () => {
-  const grid = stack(2)
-
-  const straight = () =>
-    prescribe({
-      scheme: 'straight',
-      grid,
-      repMin: 13,
-      repMax: 15,
-      sets: 3,
-      lastSessionSets: sets([12, 9, 'limit']),
-      daysSincePattern: 5,
-      painRecent: false,
-      firstForMuscleGroup: true,
-    }).sets
-
-  it('подтягивает рабочий вес к фактической разминке', () => {
-    // Реальный случай: движок снял ступень до 10, человек размялся на 12.
-    // Двенадцать он только что поднял — спорить с этим бессмысленно.
-    const plan = straight()
-    const r = liftAfterWarmup({ sets: plan, warmupKg: 12, grid })
-    assert.equal(r.lifted, true)
-    for (const s of r.sets.filter((x) => x.role === 'working')) {
-      assert.equal(s.weight.weight, 12)
-    }
-  })
-
-  it('лёгкая разминка рабочий вес не трогает', () => {
-    const plan = straight()
-    const working = plan.filter((s) => s.role === 'working')[0].weight.weight
-    const r = liftAfterWarmup({ sets: plan, warmupKg: 4, grid })
-    assert.equal(r.lifted, false)
-    assert.equal(r.sets.filter((s) => s.role === 'working')[0].weight.weight, working)
-  })
-
-  it('саму разминку не переписывает', () => {
-    const plan = straight()
-    const r = liftAfterWarmup({ sets: plan, warmupKg: 12, grid })
-    const warmup = r.sets.find((s) => s.role === 'warmup')
-    const before = plan.find((s) => s.role === 'warmup')
-    assert.equal(warmup?.weight.weight, before?.weight.weight)
-  })
-
-  it('без рабочих подходов ничего не делает', () => {
-    assert.equal(liftAfterWarmup({ sets: [], warmupKg: 50, grid }).lifted, false)
   })
 })

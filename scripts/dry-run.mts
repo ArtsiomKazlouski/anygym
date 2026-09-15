@@ -7,7 +7,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../src/db/index.ts'
 import { authUsers, exercises, gyms, templateItems, templates } from '../src/db/schema.ts'
-import { muscleGroupOf } from '../src/lib/patterns.ts'
 import { rangeFromTarget } from '../src/lib/templates/parse.ts'
 import { buildItemPlan } from '../src/lib/session/plan.ts'
 import { patternTitles } from '../src/lib/session/queries.ts'
@@ -25,15 +24,11 @@ const titles = await patternTitles()
 
 console.log(`Зал: ${gym.name}   Тренировка: ${tpl.name}\n`)
 
-const workedGroups = new Set<string>()
-
 for (const it of items) {
   const [ex] = await db
     .select()
     .from(exercises)
     .where(eq(exercises.id, it.preferredExerciseId!))
-  const group = muscleGroupOf(it.patternCode)!
-  const first = !workedGroups.has(group)
 
   const plan = await buildItemPlan({
     userId: user.id,
@@ -46,10 +41,8 @@ for (const it of items) {
     rampPercents: it.rampPercents,
     ...rangeFromTarget(ex.targetReps),
     extraSets: 0,
-    firstForMuscleGroup: first,
     logged: [],
   })
-  workedGroups.add(group)
 
   const head = `${it.position + 1}. ${ex.name}`
   console.log(head)
