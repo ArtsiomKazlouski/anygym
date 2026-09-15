@@ -31,16 +31,8 @@ export default async function Home() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-8 p-5">
-      <header className="flex items-center justify-between gap-3">
+      <header>
         <AppNav current="/" />
-        <form
-          action={async () => {
-            'use server'
-            await signOut({ redirectTo: '/signin' })
-          }}
-        >
-          <SubmitButton className="text-sm opacity-50 hover:opacity-100">Выйти</SubmitButton>
-        </form>
       </header>
 
       {latest && <SessionRow row={latest} primary />}
@@ -104,6 +96,24 @@ export default async function Home() {
       )}
 
       <BuildFooter version={buildVersion()} />
+
+      {/*
+        «Выйти» стояла в шапке вплотную к разделам. Промахнуться на телефоне
+        легко, а цена высокая: в установленном приложении вход заново идёт
+        через Google без адресной строки и автозаполнения. Здесь по ней
+        не попадёшь случайно.
+      */}
+      <form
+        action={async () => {
+          'use server'
+          await signOut({ redirectTo: '/signin' })
+        }}
+        className="pb-2 text-center"
+      >
+        <SubmitButton className="text-xs opacity-30 hover:opacity-70">
+          Выйти из {session.user?.email}
+        </SubmitButton>
+      </form>
     </main>
   )
 }
