@@ -167,15 +167,21 @@ export async function historyVolume(userId: string, exerciseIds: string[]) {
 }
 
 /**
- * Рабочие подходы последней сессии по этому упражнению.
- * Берётся именно последняя сессия целиком, а не последние N подходов:
- * межсессионная прогрессия смотрит на сессию как на единицу.
+ * Рабочие подходы последней сессии по этому упражнению — и её дата.
+ *
+ * Берётся последняя сессия, где упражнение ДЕЛАЛОСЬ, а не последняя
+ * тренировка вообще: иначе один пропуск обнулял бы прогресс. Дата нужна,
+ * чтобы подсказка не говорила «прошлый раз» про тренировку двухнедельной
+ * давности, которую человек не помнит.
+ *
+ * Сессия берётся целиком, а не последние N подходов: межсессионная
+ * прогрессия смотрит на сессию как на единицу.
  */
 export async function lastSessionSets(
   userId: string,
   exerciseId: string,
   excludeSessionId?: string,
-): Promise<LoggedSet[]> {
+): Promise<{ sets: LoggedSet[]; at: Date | null }> {
   const where = and(
     eq(workoutSessions.userId, userId),
     eq(sessionItems.exerciseId, exerciseId),
@@ -192,7 +198,7 @@ export async function lastSessionSets(
     .orderBy(desc(setLogs.loggedAt))
     .limit(1)
 
-  if (!latest) return []
+  if (!latest) return { sets: [], at: null }
 
   const rows = await db
     .select({ weightKg: setLogs.weightKg, reps: setLogs.reps, feedback: setLogs.feedback })
@@ -207,9 +213,12 @@ export async function lastSessionSets(
     )
     .orderBy(setLogs.position)
 
-  return rows
-    .filter((r) => r.reps != null && r.feedback != null)
-    .map((r) => ({ weightKg: r.weightKg, reps: r.reps!, feedback: r.feedback! }))
+  return {
+    sets: rows
+      .filter((r) => r.reps != null && r.feedback != null)
+      .map((r) => ({ weightKg: r.weightKg, reps: r.reps!, feedback: r.feedback! })),
+    at: latest.at,
+  }
 }
 
 /**

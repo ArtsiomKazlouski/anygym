@@ -88,6 +88,11 @@ export async function buildItemPlan(args: {
     setupFor(args.userId, exercise.model.id, instance?.id),
   ])
 
+  // Подсказка должна называть дату истории: «прошлый раз» про тренировку,
+  // которую пропустил, звучит как ошибка движка.
+  const historyDay =
+    last.at && new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(last.at)
+
   const prescription = prescribe({
     scheme: args.scheme,
     grid,
@@ -96,13 +101,16 @@ export async function buildItemPlan(args: {
     sets: args.sets,
     extraSets: args.extraSets,
     rampPercents: args.rampPercents ?? undefined,
-    lastSessionSets: last,
+    lastSessionSets: last.sets,
     daysSincePattern: days,
     painRecent: pain,
     probeBaseKg: probe,
   })
 
   const notes = [...prescription.notes]
+  if (historyDay && prescription.source !== 'probe' && prescription.source !== 'manual') {
+    notes.push(`Считаю от записи ${historyDay}`)
+  }
   const base = {
     grid,
     modelId: exercise.model.id,

@@ -230,10 +230,10 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     const delta = interSessionDelta(ctx.lastSessionSets, ctx.repMin, repMax)
     if (delta === 1) {
       topKg = stepKg(historyBase, grid, 1).weightKg
-      notes.push('Прошлый раз закрыл верх диапазона — прибавка на ступень')
+      notes.push('Верх диапазона закрыт — прибавка на ступень')
     } else if (delta === -1) {
       topKg = stepKg(historyBase, grid, -1).weightKg
-      notes.push('Прошлый раз не добил — минус ступень')
+      notes.push('Повторы не добраны — минус ступень')
     } else {
       topKg = historyBase
       notes.push('Вес держим, растём в повторах')
