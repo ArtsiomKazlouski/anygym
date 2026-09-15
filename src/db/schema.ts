@@ -74,6 +74,8 @@ export const setFeedback = pgEnum('set_feedback', [
 /** Откуда взялся предложенный вес — нужно, чтобы потом оценить движок. */
 export const prescriptionSource = pgEnum('prescription_source', [
   'history',
+  // Заявленного веса больше нет: число приходилось угадывать заранее, вне зала.
+  // Значение оставлено — на него ссылаются старые записи.
   'declared',
   'probe',
   'manual',
@@ -320,15 +322,6 @@ export const exercises = pgTable(
      * то, что вышло десять, — результат, а не другая цель.
      */
     targetReps: integer('target_reps').notNull().default(12),
-    /**
-     * Рабочий вес со слов пользователя — стартовая точка, пока истории нет.
-     * Как только появится первая запись, история его вытесняет.
-     */
-    declaredWorkingKg: numeric('declared_working_kg', {
-      precision: 7,
-      scale: 2,
-      mode: 'number',
-    }),
     notes: text('notes'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -64,6 +64,13 @@
       "when": 1789420173354,
       "tag": "0008_plan-item-without-reps",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789467423116,
+      "tag": "0009_drop-declared-weight",
+      "breakpoints": true
     }
   ]
 }

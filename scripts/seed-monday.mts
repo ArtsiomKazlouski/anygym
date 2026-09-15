@@ -43,8 +43,6 @@ type ExerciseSeed = {
   model: string
   /** Целевые повторы — свойство упражнения, а не плана. */
   targetReps: number
-  /** Рабочий вес со слов пользователя. null — сказал, что не помнит. */
-  declaredKg?: number
   notes?: string
 }
 
@@ -96,7 +94,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Жим лёжа',
     pattern: 'horizontal_press',
     model: 'barbell',
-    declaredKg: 100,
   },
   {
     key: 'db45',
@@ -104,7 +101,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Жим гантелей под наклоном 45°',
     pattern: 'incline_press',
     model: 'dumbbells',
-    declaredKg: 36,
   },
   // 30° и альтернативы сведения — вес не назывался, заполнится с первой тренировки
   {
@@ -142,7 +138,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Бицепс гантелями сидя',
     pattern: 'biceps_curl',
     model: 'dumbbells',
-    declaredKg: 14,
   },
   {
     key: 'curl_ez',
@@ -150,7 +145,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Бицепс с EZ-грифом стоя',
     pattern: 'biceps_curl',
     model: 'ez',
-    declaredKg: 45,
   },
   {
     key: 'hammer',
@@ -158,7 +152,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Молоточки',
     pattern: 'biceps_curl',
     model: 'dumbbells',
-    declaredKg: 14,
   },
   {
     key: 'abs',
@@ -166,7 +159,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Пресс в тренажёре',
     pattern: 'trunk_flexion',
     model: 'ab',
-    declaredKg: 50,
   },
 ]
 
@@ -305,20 +297,10 @@ for (const e of EXERCISES) {
           patternCode: e.pattern,
           equipmentModelId: modelIds.get(e.model)!,
           targetReps: e.targetReps,
-          declaredWorkingKg: e.declaredKg ?? null,
           notes: e.notes,
         })
         .returning()
     )[0]
-
-  // Заявленный вес обновляем и на существующих — это справочная величина,
-  // истории она не касается.
-  if (found && found.declaredWorkingKg !== (e.declaredKg ?? null)) {
-    await db
-      .update(exercises)
-      .set({ declaredWorkingKg: e.declaredKg ?? null })
-      .where(eq(exercises.id, found.id))
-  }
   exerciseIds.set(e.key, row.id)
 }
 

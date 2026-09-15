@@ -1,0 +1,1 @@
+ALTER TABLE "exercise" DROP COLUMN "declared_working_kg";

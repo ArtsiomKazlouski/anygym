@@ -119,7 +119,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
               </summary>
 
               <form
-                key={`${e.name}-${e.patternCode}-${e.targetReps}-${e.declaredWorkingKg}`}
+                key={`${e.name}-${e.patternCode}-${e.targetReps}`}
                 action={updateExercise}
                 className="mt-2 flex flex-col gap-2"
               >
@@ -144,26 +144,15 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                     ))}
                   </select>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs opacity-55">Целевые повторы</span>
-                    <input
-                      name="targetReps"
-                      inputMode="numeric"
-                      defaultValue={e.targetReps}
-                      className={field}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs opacity-55">Стартовый вес</span>
-                    <input
-                      name="declaredWorkingKg"
-                      inputMode="decimal"
-                      defaultValue={e.declaredWorkingKg ?? ''}
-                      className={field}
-                    />
-                  </label>
-                </div>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs opacity-55">Целевые повторы</span>
+                  <input
+                    name="targetReps"
+                    inputMode="numeric"
+                    defaultValue={e.targetReps}
+                    className={field}
+                  />
+                </label>
                 <SubmitButton className="rounded-xl border border-black/15 py-2.5 text-sm dark:border-white/20">
                   Сохранить
                 </SubmitButton>
@@ -195,20 +184,12 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                 </option>
               ))}
             </select>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                name="targetReps"
-                inputMode="numeric"
-                placeholder="Повторы, обычно 12"
-                className={field}
-              />
-              <input
-                name="declaredWorkingKg"
-                inputMode="decimal"
-                placeholder="Стартовый вес"
-                className={field}
-              />
-            </div>
+            <input
+              name="targetReps"
+              inputMode="numeric"
+              placeholder="Повторы, обычно 12"
+              className={field}
+            />
             <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
               Создать
             </SubmitButton>

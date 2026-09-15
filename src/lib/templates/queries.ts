@@ -27,7 +27,6 @@ export async function templateWithItems(userId: string, templateId: string) {
     .select({
       item: templateItems,
       exerciseName: exercises.name,
-      declaredKg: exercises.declaredWorkingKg,
       targetReps: exercises.targetReps,
     })
     .from(templateItems)

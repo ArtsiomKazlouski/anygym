@@ -430,51 +430,6 @@ describe('рампа', () => {
   })
 })
 
-describe('заявленный вес', () => {
-  const base = {
-    scheme: 'straight' as const,
-    grid: stack(5),
-    repMin: 8,
-    repMax: 12,
-    lastSessionSets: [],
-    daysSincePattern: null,
-    painRecent: false,
-  }
-
-  it('стартует с веса, названного пользователем', () => {
-    const p = prescribe({ ...base, declaredWorkingKg: 45 })
-    assert.equal(p.source, 'declared')
-    assert.equal(p.top?.weight, 45)
-  })
-
-  it('уступает истории, как только она появилась', () => {
-    const p = prescribe({
-      ...base,
-      declaredWorkingKg: 45,
-      lastSessionSets: sets([60, 10, 'on_target']),
-      daysSincePattern: 5,
-    })
-    assert.equal(p.source, 'history')
-    assert.equal(p.top?.weight, 60)
-  })
-
-  it('предпочитается разведке от соседнего упражнения', () => {
-    const p = prescribe({ ...base, declaredWorkingKg: 45, probeBaseKg: 100 })
-    assert.equal(p.source, 'declared')
-    assert.equal(p.top?.weight, 45, 'названный вес точнее, чем 60% от чужого упражнения')
-  })
-
-  it('не используется после сброса за 90+ дней', () => {
-    const p = prescribe({
-      ...base,
-      declaredWorkingKg: 45,
-      lastSessionSets: sets([60, 10, 'on_target']),
-      daysSincePattern: 200,
-      probeBaseKg: 60,
-    })
-    assert.equal(p.source, 'probe', 'после долгого перерыва старый заявленный вес не аргумент')
-  })
-})
 
 describe('пересчёт рампы под фактический вес', () => {
   const olympicBar: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }

@@ -97,7 +97,6 @@ export async function buildItemPlan(args: {
     extraSets: args.extraSets,
     rampPercents: args.rampPercents ?? undefined,
     lastSessionSets: last,
-    declaredWorkingKg: exercise.ex.declaredWorkingKg,
     daysSincePattern: days,
     painRecent: pain,
     probeBaseKg: probe,

@@ -307,7 +307,6 @@ export async function createExerciseOn(formData: FormData) {
     patternCode,
     equipmentModelId,
     targetReps: Math.round(num(formData, 'targetReps') ?? 12),
-    declaredWorkingKg: num(formData, 'declaredWorkingKg'),
   })
   revalidatePath(`/equipment/${equipmentModelId}`)
 }
@@ -329,7 +328,6 @@ export async function updateExercise(formData: FormData) {
       name,
       patternCode,
       targetReps: Math.round(targetReps),
-      declaredWorkingKg: num(formData, 'declaredWorkingKg'),
     })
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
   revalidatePath(`/equipment/${modelId}`)

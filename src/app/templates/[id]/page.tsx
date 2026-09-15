@@ -12,6 +12,7 @@ import {
   renameTemplate,
   updateTemplateItem,
 } from '@/lib/templates/actions'
+import { lastWorkingSets } from '@/lib/equipment/queries'
 import { templateWithItems } from '@/lib/templates/queries'
 import { rampWeightsFromPercents } from '@/lib/templates/parse'
 
@@ -25,7 +26,10 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const data = await templateWithItems(userId, id)
+  const [data, lastSets] = await Promise.all([
+    templateWithItems(userId, id),
+    lastWorkingSets(userId),
+  ])
   if (!data) redirect('/templates')
 
   return (
@@ -50,10 +54,10 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
           <p className="text-sm opacity-50">Пунктов пока нет — добавь первое упражнение.</p>
         )}
 
-        {data.items.map(({ item, exerciseName, declaredKg, targetReps }, index) => {
+        {data.items.map(({ item, exerciseName, targetReps }, index) => {
           const summary =
             item.scheme === 'ramp'
-              ? `рампа ${rampWeightsFromPercents(item.rampPercents, declaredKg) || '—'} · ${targetReps} повт`
+              ? `рампа ${rampWeightsFromPercents(item.rampPercents, lastSets.get(item.preferredExerciseId ?? '')?.weight) || '—'} · ${targetReps} повт`
               : `${item.sets} подх. × ${targetReps}`
 
           return (
@@ -101,7 +105,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}
-                  declaredKg={declaredKg}
+                  declaredKg={lastSets.get(item.preferredExerciseId ?? '')?.weight ?? null}
                   catalog={data.catalog}
                   submitLabel="Сохранить пункт"
                 />

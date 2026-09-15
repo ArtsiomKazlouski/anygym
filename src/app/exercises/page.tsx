@@ -61,7 +61,7 @@ export default async function ExercisesPage() {
               </summary>
 
               <form
-                key={`${e.name}-${e.patternCode}-${e.targetReps}-${e.declaredWorkingKg}`}
+                key={`${e.name}-${e.patternCode}-${e.targetReps}`}
                 action={updateExercise}
                 className="mt-3 flex flex-col gap-2"
               >
@@ -86,26 +86,15 @@ export default async function ExercisesPage() {
                     ))}
                   </select>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs opacity-55">Целевые повторы</span>
-                    <input
-                      name="targetReps"
-                      inputMode="numeric"
-                      defaultValue={e.targetReps}
-                      className={field}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs opacity-55">Стартовый вес</span>
-                    <input
-                      name="declaredWorkingKg"
-                      inputMode="decimal"
-                      defaultValue={e.declaredWorkingKg ?? ''}
-                      className={field}
-                    />
-                  </label>
-                </div>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs opacity-55">Целевые повторы</span>
+                  <input
+                    name="targetReps"
+                    inputMode="numeric"
+                    defaultValue={e.targetReps}
+                    className={field}
+                  />
+                </label>
 
                 <p className="text-xs opacity-45">
                   {last ? (
