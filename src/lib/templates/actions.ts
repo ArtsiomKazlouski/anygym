@@ -67,25 +67,19 @@ export async function archiveTemplate(formData: FormData) {
 /**
  * Разбор полей пункта.
  *
- * Рампа вводится в килограммах — так её держат в голове, — а хранится долями
- * от верхнего веса, чтобы ступени ехали вместе с ним при прогрессии.
+ * Подводка вводится в килограммах — так её держат в голове, — а хранится
+ * долями рабочего веса, чтобы ступени ехали вместе с ним при прогрессии.
+ * Пустое поле означает «подводки нет», а не ошибку: большинству упражнений
+ * она не нужна.
  */
 function itemFieldsFrom(formData: FormData) {
-  const scheme = (str(formData, 'scheme') || 'straight') as 'straight' | 'ramp'
-
   // Целевых повторов здесь нет: это свойство упражнения, а не плана.
-  let rampPercents: number[] | null = null
-  if (scheme === 'ramp') {
-    const { percents, error } = rampPercentsFromWeights(str(formData, 'rampWeights'))
-    if (error) throw new Error(error)
-    if (!percents) throw new Error('Для рампы нужны ступени: 20, 60, 80, 90, 100')
-    rampPercents = percents
-  }
+  const { percents, error } = rampPercentsFromWeights(str(formData, 'rampWeights'))
+  if (error) throw new Error(error)
 
   return {
-    scheme,
     sets: Number(str(formData, 'sets')) || 3,
-    rampPercents,
+    rampPercents: percents,
     note: str(formData, 'note') || null,
   }
 }

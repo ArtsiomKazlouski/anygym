@@ -1,9 +1,13 @@
 /**
- * Разбор ступеней рампы и целевых повторов.
+ * Разбор подводки и целевых повторов.
  *
- * Рампа вводится в килограммах — «20, 60, 80, 90, 100», как человек её и держит
- * в голове, — а хранится долями от верхнего веса, чтобы ехать вместе с ним
+ * Подводка вводится в килограммах — «20, 40, 60, 80, 90», как человек её и
+ * держит в голове, — а хранится долями рабочего веса, чтобы ехать вместе с ним
  * при прогрессии.
+ *
+ * Последнее число в строке — рабочий вес. Он задаёт масштаб и сам в подводку
+ * не попадает: иначе пришлось бы знать рабочий вес заранее, а его знает
+ * история, а не человек у формы.
  */
 
 export type NumbersResult = { values: number[]; error?: string }
@@ -24,8 +28,11 @@ export function parseNumbers(input: string): NumbersResult {
 }
 
 /**
- * Килограммы ступеней -> доли от верхнего веса. Верхняя ступень всегда 1.
- * Значения должны идти по возрастанию: рампа на то и рампа.
+ * Килограммы ступеней -> доли рабочего веса, строго меньше единицы.
+ *
+ * Последнее число — рабочий вес, оно задаёт масштаб и в подводку не входит.
+ * Одно число означает «подводки нет»: назвали только рабочий вес.
+ * Значения должны идти по возрастанию — подводка на то и подводка.
  */
 export function rampPercentsFromWeights(input: string): {
   percents: number[] | null
@@ -33,32 +40,33 @@ export function rampPercentsFromWeights(input: string): {
 } {
   const { values, error } = parseNumbers(input)
   if (error) return { percents: null, error }
-  if (values.length === 0) return { percents: null }
-  if (values.length === 1) return { percents: [1] }
+  if (values.length <= 1) return { percents: null }
 
   for (let i = 1; i < values.length; i++) {
     if (values[i] <= values[i - 1]) {
-      return { percents: null, error: 'Ступени должны расти: 20, 60, 80, 90, 100' }
+      return { percents: null, error: 'Ступени должны расти: 20, 40, 60, 80, 90' }
     }
   }
 
   const top = values[values.length - 1]
-  return { percents: values.map((w) => Math.round((w / top) * 1000) / 1000) }
+  return {
+    percents: values.slice(0, -1).map((w) => Math.round((w / top) * 1000) / 1000),
+  }
 }
 
-/** Доли обратно в килограммы — чтобы показать при редактировании. */
+/**
+ * Доли обратно в килограммы — чтобы показать при редактировании.
+ * Рабочий вес дописывается последним: в поле человек видит ту же строку,
+ * которую туда вводил.
+ */
 export function rampWeightsFromPercents(
   percents: number[] | null | undefined,
   topKg: number | null | undefined,
 ): string {
   if (!percents || percents.length === 0) return ''
   const top = topKg && topKg > 0 ? topKg : 100
-  return percents
-    .map((p) => {
-      const w = p * top
-      return Math.round(w * 10) / 10
-    })
-    .join(', ')
+  const round = (w: number) => Math.round(w * 10) / 10
+  return [...percents.map((p) => round(p * top)), round(top)].join(', ')
 }
 
 /**

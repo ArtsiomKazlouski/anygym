@@ -16,7 +16,6 @@ export type {
   PrescribeContext,
   Prescription,
   PrescriptionSource,
-  Scheme,
   SetFeedback,
   SetPlan,
   SetRole,

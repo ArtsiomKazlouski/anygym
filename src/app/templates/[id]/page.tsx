@@ -13,7 +13,6 @@ import {
 } from '@/lib/templates/actions'
 import { lastWorkingSets } from '@/lib/equipment/queries'
 import { templateWithItems } from '@/lib/templates/queries'
-import { rampWeightsFromPercents } from '@/lib/templates/parse'
 import { MUSCLES, muscleTitle } from '@/lib/muscles'
 
 const field =
@@ -37,8 +36,8 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   // поэтому счёт стоит прямо здесь.
   const perMuscle = new Map<string, number>()
   for (const { item, muscleGroup } of data.items) {
-    const sets = item.scheme === 'ramp' ? 1 : item.sets
-    perMuscle.set(muscleGroup, (perMuscle.get(muscleGroup) ?? 0) + sets)
+    // Подводка в объём не входит — она затем и подводка.
+    perMuscle.set(muscleGroup, (perMuscle.get(muscleGroup) ?? 0) + item.sets)
   }
   const volume = MUSCLES.filter((m) => perMuscle.has(m.code))
 
@@ -77,10 +76,9 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         )}
 
         {data.items.map(({ item, exerciseName, muscleGroup, targetReps }, index) => {
+          const lead = item.rampPercents?.length ?? 0
           const summary =
-            item.scheme === 'ramp'
-              ? `рампа ${rampWeightsFromPercents(item.rampPercents, lastSets.get(item.exerciseId)?.weight) || '—'} · ${targetReps} повт`
-              : `${item.sets} подх. × ${targetReps}`
+            (lead > 0 ? `подводка ${lead} · ` : '') + `${item.sets} подх. × ${targetReps}`
 
           return (
             <details
@@ -121,7 +119,6 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
                 <TemplateItemForm
                   key={JSON.stringify([
                     item.exerciseId,
-                    item.scheme,
                     item.sets,
                     item.rampPercents,
                     item.note,
@@ -129,7 +126,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}
-                  declaredKg={lastSets.get(item.exerciseId)?.weight ?? null}
+                  workingKg={lastSets.get(item.exerciseId)?.weight ?? null}
                   catalog={data.catalog}
                   submitLabel="Сохранить пункт"
                 />

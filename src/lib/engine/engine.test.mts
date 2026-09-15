@@ -82,13 +82,32 @@ describe('межсессионная прогрессия', () => {
     )
   })
 
-  it('не растит, пока диапазон не закрыт', () => {
-    assert.equal(interSessionDelta(sets([50, 12, 'on_target'], [50, 11, 'limit']), 8, 12), 0)
+  it('не растит, пока первый подход не закрыл диапазон', () => {
+    assert.equal(interSessionDelta(sets([50, 11, 'on_target'], [50, 12, 'limit']), 8, 12), 0)
   })
 
-  it('снижает, когда провалена половина подходов', () => {
+  it('решает первый рабочий подход, а не все сразу', () => {
+    // Второй и третий на том же весе всегда слабее первого — это усталость,
+    // а не приговор весу. Требовать верх диапазона от всех значило бы
+    // не дать вырасти никогда, особенно когда перед работой есть подводка.
+    assert.equal(
+      interSessionDelta(sets([50, 12, 'on_target'], [50, 10, 'limit'], [50, 8, 'limit']), 8, 12),
+      1,
+      'первый закрыл диапазон — вес растёт, просадка дальше нормальна',
+    )
+  })
+
+  it('снижает, когда провален первый подход', () => {
     // Провал выводится из повторов: 6 при цели от 8 с ответом «на пределе».
     assert.equal(interSessionDelta(sets([50, 6, 'limit'], [50, 8, 'on_target']), 8, 12), -1)
+  })
+
+  it('не снижает из-за просевших последних подходов', () => {
+    assert.equal(
+      interSessionDelta(sets([50, 10, 'on_target'], [50, 6, 'limit'], [50, 5, 'limit']), 8, 12),
+      0,
+      'вес держим: первый подход был в диапазоне',
+    )
   })
 
   it('не считает провалом недобор, если подход был лёгким', () => {
@@ -121,7 +140,6 @@ describe('откат за паузу', () => {
 describe('примеры из DESIGN.md, раздел 6', () => {
   it('1. знакомая железка, штатный рост', () => {
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(5),
       repMin: 8,
       repMax: 12,
@@ -138,7 +156,6 @@ describe('примеры из DESIGN.md, раздел 6', () => {
     // сотня в жиме не означает сотню в разводке, и промах вверх на
     // незнакомой железке — это травма.
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(5),
       repMin: 8,
       repMax: 12,
@@ -153,7 +170,6 @@ describe('примеры из DESIGN.md, раздел 6', () => {
   it('3. пауза 30 дней: −10%, и возврат к прежнему весу на фидбеке «легко»', () => {
     const grid = stack(10, 10)
     const p = prescribe({
-      scheme: 'straight',
       grid,
       repMin: 8,
       repMax: 12,
@@ -177,7 +193,6 @@ describe('примеры из DESIGN.md, раздел 6', () => {
 
   it('4. боль: снижение и заморозка роста', () => {
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(5),
       repMin: 8,
       repMax: 12,
@@ -221,7 +236,6 @@ describe('авторегуляция внутри упражнения', () => {
 describe('граничные случаи', () => {
   it('без истории просит ввести вес руками', () => {
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(5),
       repMin: 8,
       repMax: 12,
@@ -235,7 +249,6 @@ describe('граничные случаи', () => {
 
   it('перерыв больше 90 дней обнуляет историю', () => {
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(5),
       repMin: 8,
       repMax: 12,
@@ -252,7 +265,6 @@ describe('граничные случаи', () => {
     // Округлить вниз значило бы срезать 20% вместо 5%. Честнее оставить 100:
     // один подход с фидбеком «легко» и так вернул бы вес обратно.
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(20, 20),
       repMin: 8,
       repMax: 12,
@@ -266,7 +278,6 @@ describe('граничные случаи', () => {
   it('на той же сетке крупный откат срабатывает', () => {
     // 60 дней это −15%, то есть 15 кг — больше половины шага, сетка это выражает.
     const p = prescribe({
-      scheme: 'straight',
       grid: stack(20, 20),
       repMin: 8,
       repMax: 12,
@@ -284,8 +295,7 @@ describe('граничные случаи', () => {
           const grid = stack(step, step)
           const start = snapKg(base, grid, 'nearest').weightKg
           const p = prescribe({
-            scheme: 'straight',
-            grid,
+                  grid,
             repMin: 8,
             repMax: 12,
             lastSessionSets: sets([start, 10, 'on_target']),
@@ -314,13 +324,80 @@ describe('рампа', () => {
 
   const olympicBar: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
 
+  it('подводка на удобных блинах, потом три рабочих подхода одним весом', () => {
+    // Живой жим: рабочие 90 на 8-10, подводка гриф / по десятке / по двадцатке /
+    // плюс ещё десятка. Грубый шаг 20 кладёт ступени ровно на эти блины,
+    // хотя доли считаются от рабочего веса и поедут вместе с ним.
+    const bar: WeightGrid = { units: 'kg', step: 2.5, rampStep: 20, barWeight: 20, max: 200 }
+    const p = prescribe({
+      grid: bar,
+      repMin: 8,
+      repMax: 10,
+      sets: 3,
+      rampPercents: [0.222, 0.444, 0.667, 0.889],
+      lastSessionSets: sets([90, 9, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [20, 40, 60, 80, 90, 90, 90],
+    )
+    assert.deepEqual(
+      p.sets.map((s) => s.role),
+      ['ramp', 'ramp', 'ramp', 'ramp', 'working', 'working', 'working'],
+    )
+    assert.deepEqual(
+      p.sets.map((s) => s.reps[1]),
+      [10, 10, 10, 10, 10, 10, 10],
+      'повторы на подводке те же, что в упражнении',
+    )
+  })
+
+  it('подводка едет вместе с рабочим весом, оставаясь на тех же блинах', () => {
+    const bar: WeightGrid = { units: 'kg', step: 2.5, rampStep: 20, barWeight: 20, max: 200 }
+    const p = prescribe({
+      grid: bar,
+      repMin: 8,
+      repMax: 10,
+      sets: 3,
+      rampPercents: [0.222, 0.444, 0.667, 0.889],
+      lastSessionSets: sets([100, 9, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.filter((s) => s.role === 'ramp').map((s) => s.weight.weight),
+      [20, 40, 60, 80],
+      'рабочий вес вырос до 100, а подводка осталась собираемой из тех же блинов',
+    )
+  })
+
+  it('без подводки упражнение начинается сразу с рабочего веса', () => {
+    const p = prescribe({
+      grid: stack(5),
+      repMin: 10,
+      repMax: 12,
+      sets: 4,
+      lastSessionSets: sets([50, 11, 'on_target']),
+      daysSinceMuscle: 3,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [50, 50, 50, 50],
+    )
+    assert.ok(p.sets.every((s) => s.role === 'working'))
+  })
+
   it('воспроизводит реальный жим лёжа: гриф, 60, 80, 90, 100', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+      rampPercents: [0.2, 0.6, 0.8, 0.9],
       // пять повторов при цели шесть: диапазон не закрыт, вес держим
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
@@ -344,11 +421,11 @@ describe('рампа', () => {
 
   it('воспроизводит жим гантелей 45°: 22, 26, 32, 36', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: cityfitDumbbells,
       repMin: 10,
       repMax: 12,
-      rampPercents: [0.6, 0.72, 0.89, 1],
+      rampPercents: [0.6, 0.72, 0.89],
       lastSessionSets: sets([36, 10, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -362,11 +439,11 @@ describe('рампа', () => {
 
   it('не предлагает гантелей вне ряда зала', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: cityfitDumbbells,
       repMin: 10,
       repMax: 12,
-      rampPercents: [0.55, 0.7, 0.85, 1],
+      rampPercents: [0.55, 0.7, 0.85],
       lastSessionSets: sets([30, 12, 'easy']),
       daysSinceMuscle: 5,
       painRecent: false,
@@ -381,11 +458,11 @@ describe('рампа', () => {
 
   it('выбрасывает ступени, схлопнувшиеся на грубой сетке', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: stack(20, 20),
       repMin: 8,
       repMax: 12,
-      rampPercents: [0.8, 0.85, 0.9, 1],
+      rampPercents: [0.8, 0.85, 0.9],
       lastSessionSets: sets([100, 10, 'on_target']),
       daysSinceMuscle: 5,
       painRecent: false,
@@ -397,11 +474,11 @@ describe('рампа', () => {
 
   it('проваленный подводящий отменяет верхний подход', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8, 0.9, 1],
+      rampPercents: [0.6, 0.8, 0.9],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -413,11 +490,11 @@ describe('рампа', () => {
 
   it('подводящий на пределе срезает верх, но рабочий подход остаётся', () => {
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8, 0.9, 1],
+      rampPercents: [0.6, 0.8, 0.9],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -436,11 +513,11 @@ describe('пересчёт рампы под фактический вес', () 
 
   const benchPlan = () =>
     prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+      rampPercents: [0.2, 0.6, 0.8, 0.9],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -503,9 +580,17 @@ describe('повторы перевешивают кнопку', () => {
     assert.ok(r.note)
   })
 
-  it('«в точку» ровно на верхе диапазона тоже растит', () => {
+  it('«в точку» ровно на верхе диапазона держит вес', () => {
+    // Рабочие подходы делаются одним весом, чтобы их можно было сравнить
+    // между собой. Прибавку за закрытую цель выдаст межсессионная прогрессия,
+    // и выдаст один раз, а не дважды за ту же работу.
     const r = nextSet({ currentKg: 50, feedback: 'on_target', grid, reps: 12, repMax: 12 })
-    assert.equal(r.weight.weight, 55)
+    assert.equal(r.weight.weight, 50)
+  })
+
+  it('«в точку» выше цели растит вес не дожидаясь следующей тренировки', () => {
+    const r = nextSet({ currentKg: 50, feedback: 'on_target', grid, reps: 15, repMax: 12 })
+    assert.equal(r.weight.weight, 55, 'пятнадцать при цели двенадцать — лёгкий вес')
   })
 
   it('«в точку» внутри диапазона держит вес', () => {
@@ -577,11 +662,11 @@ describe('грубый шаг для подводящих', () => {
 
   const plan = (topKg: number) =>
     prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: bar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+      rampPercents: [0.2, 0.6, 0.8, 0.9],
       // пять повторов при цели шесть: диапазон не закрыт, верх остаётся
       lastSessionSets: sets([topKg, 5, 'on_target']),
       daysSinceMuscle: 7,
@@ -600,11 +685,11 @@ describe('грубый шаг для подводящих', () => {
   it('прогрессия по-прежнему идёт мелким шагом', () => {
     // Закрыл верх диапазона -> +2.5, а не +5.
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: bar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 1],
+      rampPercents: [0.6],
       lastSessionSets: sets([100, 6, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -615,11 +700,11 @@ describe('грубый шаг для подводящих', () => {
   it('без rampStep ведёт себя как раньше', () => {
     const fine: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
     const p = prescribe({
-      scheme: 'ramp',
+      sets: 1,
       grid: fine,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8, 1],
+      rampPercents: [0.6, 0.8],
       lastSessionSets: sets([102.5, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -692,15 +777,20 @@ describe('между тренировками решают повторы, а н
     )
   })
 
-  it('один провал держит вес, даже если остальные закрыли диапазон', () => {
+  it('провал первого подхода снижает вес, хвоста — нет', () => {
+    assert.equal(
+      interSessionDelta(sets([14, 9, 'limit'], [14, 15, 'on_target']), 13, 15),
+      -1,
+      'первый подход ниже диапазона — вес не по силам',
+    )
     assert.equal(
       interSessionDelta(
         sets([14, 15, 'on_target'], [14, 15, 'on_target'], [14, 9, 'limit']),
         13,
         15,
       ),
-      0,
-      'провал не должен соседствовать с прибавкой',
+      1,
+      'просадка третьего подхода — усталость, а не повод стоять на месте',
     )
   })
 
@@ -736,7 +826,6 @@ describe('работа со своим весом', () => {
 
   it('план на нулевом весе строится', () => {
     const p = prescribe({
-      scheme: 'straight',
       grid: barWithPlates,
       repMin: 6,
       repMax: 8,

@@ -17,14 +17,6 @@ export type SetFeedback = 'easy' | 'on_target' | 'limit' | 'failed'
 export type PrescriptionSource =
   'history' | 'declared' | 'probe' | 'manual' | 'deload' | 'pain_backoff'
 
-/**
- * Схема подходов.
- *  straight — один рабочий вес на все подходы, корректируется фидбеком;
- *  ramp     — восходящая пирамида к верхнему подходу. Прогрессия висит
- *             только на верхнем: подводящие считаются от него процентами.
- */
-export type Scheme = 'straight' | 'ramp'
-
 /** 'ramp' — подводящий подход, в прогрессии не участвует, как и разминка. */
 export type SetRole = 'warmup' | 'ramp' | 'working'
 
@@ -48,15 +40,17 @@ export const DELOAD_TABLE: readonly { upToDays: number; factor: number }[] = [
 
 export type PrescribeContext = {
   grid: WeightGrid
-  scheme: Scheme
-  /** Диапазон повторов рабочего (для рампы — верхнего) подхода. */
+  /** Диапазон повторов. Один на всё упражнение, включая подводящие. */
   repMin: number
   repMax: number
-  /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
+  /** Сколько рабочих подходов — все на одном весе. */
   sets?: number
-  /** Подходы сверх плана, добавленные на тренировке. Для рампы идут по верхнему весу. */
+  /** Подходы сверх плана, добавленные на тренировке. Идут тем же весом. */
   extraSets?: number
-  /** Доли от верхнего веса, по возрастанию, последняя = 1. Только для рампы. */
+  /**
+   * Подводка: доли от рабочего веса, по возрастанию, все строго меньше 1.
+   * Пусто — упражнение начинается сразу с рабочего веса.
+   */
   rampPercents?: number[]
   /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ. Подводящие и разминку не передавать. */
   lastSessionSets: LoggedSet[]
@@ -85,8 +79,7 @@ export type SetPlan = {
 export const RE_ANCHOR_MIN_PERCENT = 0.5
 
 export type Prescription = {
-  scheme: Scheme
-  /** Верхний (рабочий) вес — на нём висит прогрессия. null = истории нет. */
+  /** Рабочий вес — на нём висит прогрессия. null = истории нет. */
   top: SnappedWeight | null
   /** Полный план подходов по порядку, включая разминку и подводящие. */
   sets: SetPlan[]
@@ -144,11 +137,20 @@ export function isFailed(set: LoggedSet, repMin: number): boolean {
 /**
  * Межсессионная прогрессия (раздел 5.4): -1 вниз, 0 держим, +1 вверх.
  *
+ * Решает ПЕРВЫЙ рабочий подход, а не все сразу.
+ *
+ * Второй и третий подходы на том же весе всегда слабее первого — это
+ * накопленная усталость, а не приговор весу. Требовать верх диапазона от всех
+ * трёх значило бы не дать вырасти никогда, особенно когда перед работой есть
+ * подводка; считать проваленными все, кто не дотянул, — наоборот, утягивать
+ * вес вниз каждую тренировку. Первый рабочий подход — единственный, который
+ * из недели в неделю делается в одинаковых условиях, поэтому сравнивать можно
+ * только его.
+ *
  * Между тренировками решают повторы, а не кнопка. Раньше ответ «на пределе»
  * хоть на одном подходе блокировал рост — и прогресс становился невозможен:
  * последний подход на верхней границе диапазона почти всегда ощущается
- * предельным, в этом и смысл границы. Человек делал 15, 15, 15 при цели 15
- * и стоял на одном весе бесконечно.
+ * предельным, в этом и смысл границы.
  *
  * Кнопка по-прежнему правит вес внутри тренировки — там она к месту.
  */
@@ -157,60 +159,50 @@ export function interSessionDelta(
   repMin: number,
   repMax: number,
 ): -1 | 0 | 1 {
-  if (sets.length === 0) return 0
+  const first = sets[0]
+  if (!first) return 0
 
-  const failed = sets.filter((s) => isFailed(s, repMin)).length
-  if (failed * 2 >= sets.length) return -1
-  if (failed > 0) return 0
-
-  return sets.every((s) => s.reps >= repMax) ? 1 : 0
+  if (isFailed(first, repMin)) return -1
+  return first.reps >= repMax ? 1 : 0
 }
 
 /**
- * Строит план подходов от верхнего веса.
+ * Строит план подходов от рабочего веса: сначала подводка, потом работа.
  *
- * Отдельных разминочных подходов нет намеренно. Разминка нужна по сути
- * в одном движении — штанге, — а там её роль уже играет рампа: гриф, 60, 80,
- * 90 и есть подводка. Держать ради одного случая отдельный вид подхода
- * и правило «первое упражнение на мышечную группу» оказалось дороже пользы.
+ * Подводка и рабочие подходы — не две разные схемы, а две части одного
+ * упражнения. Подводки может не быть вовсе, и тогда упражнение начинается
+ * сразу с рабочего веса; рабочих подходов всегда хотя бы один.
+ *
+ * Отдельного вида «разминка» нет: подводка и есть разминка, просто
+ * записанная, а не подразумеваемая.
  */
 function buildSets(ctx: PrescribeContext, top: SnappedWeight): SetPlan[] {
   const { grid, repMin, repMax } = ctx
   const coarse = rampGrid(grid)
   const plan: SetPlan[] = []
 
-  if (ctx.scheme === 'ramp') {
-    const percents = (ctx.rampPercents ?? [1]).slice().sort((a, b) => a - b)
-    let previousKg = -Infinity
-    percents.forEach((p, i) => {
-      const isTop = i === percents.length - 1
-      const weight = isTop ? top : snapKg(top.weightKg * p, coarse, 'nearest')
+  // Подводка округляется своим, грубым шагом: на штанге рабочий вес растёт
+  // по 2.5, но вешать 42.5 ради подводящего — возня с мелкими блинами.
+  // Поэтому вес подводки задан долями (едет вместе с рабочим), а ложится
+  // на те ступени, которые реально удобно собрать из блинов.
+  const percents = (ctx.rampPercents ?? []).slice().sort((a, b) => a - b)
+  let previousKg = -Infinity
+  for (const p of percents) {
+    if (p >= 1) continue // подводящий не может быть тяжелее рабочего
+    const weight = snapKg(top.weightKg * p, coarse, 'nearest')
 
-      // На грубой сетке соседние доли схлопываются: 0.85 и 0.9 от 100 при шаге 20
-      // дают 80 и 100. Подводящая ступень обязана быть строго выше предыдущей
-      // и строго ниже верхней — иначе это не подводка, а повтор.
-      if (!isTop && (weight.weightKg <= previousKg || weight.weightKg >= top.weightKg)) return
-      previousKg = weight.weightKg
+    // На грубой сетке соседние доли схлопываются: 0.85 и 0.9 от 100 при шаге 20
+    // дают обе 80. Ступень обязана быть строго выше предыдущей и строго ниже
+    // рабочего веса — иначе это не подводка, а повтор.
+    if (weight.weightKg <= previousKg || weight.weightKg >= top.weightKg) continue
+    previousKg = weight.weightKg
 
-      // Цель повторов одна на всё упражнение: подводящий отличается весом,
-      // а не тем, сколько раз ты собираешься поднять.
-      plan.push({
-        role: isTop ? 'working' : 'ramp',
-        weight,
-        reps: [repMin, repMax],
-        percent: p,
-      })
-    })
-
-    // Подходы сверх плана идут по верхнему весу: рампа своё уже отработала.
-    for (let i = 0; i < (ctx.extraSets ?? 0); i++) {
-      plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
-    }
-
-    return plan
+    // Повторы на подводке те же, что в упражнении. Считать их отдельно значит
+    // решать за человека, как ему разминаться, — а этого приложение не знает.
+    plan.push({ role: 'ramp', weight, reps: [repMin, repMax], percent: p })
   }
 
-  for (let i = 0; i < (ctx.sets ?? 3) + (ctx.extraSets ?? 0); i++) {
+  for (let i = 0; i < Math.max(1, ctx.sets ?? 3) + (ctx.extraSets ?? 0); i++) {
     plan.push({ role: 'working', weight: top, reps: [repMin, repMax] })
   }
 
@@ -248,7 +240,6 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     // сотня в жиме не означает сотню в разводке. Ошибиться здесь вверх
     // означает подсунуть травмоопасный вес на незнакомой железке.
     return {
-      scheme: ctx.scheme,
       top: null,
       sets: [],
       source: 'manual',
@@ -295,7 +286,6 @@ export function prescribe(ctx: PrescribeContext): Prescription {
   }
 
   return {
-    scheme: ctx.scheme,
     top,
     sets: buildSets(ctx, top),
     source,
@@ -355,14 +345,19 @@ export function nextSet(args: {
       return { action: 'continue', weight: stepKg(currentKg, grid, 1) }
     }
     case 'on_target': {
-      // Двойная прогрессия: закрыл верх диапазона — вес растёт, что бы
-      // ни говорила кнопка. Пятнадцать повторов при цели двенадцать это
-      // не «в точку», это лёгкий вес.
-      if (reps != null && repMax != null && reps >= repMax) {
+      // Вес растёт посреди упражнения только если повторов вышло БОЛЬШЕ цели:
+      // пятнадцать при цели двенадцать — это лёгкий вес, ждать следующей
+      // тренировки незачем.
+      //
+      // Ровно по цели — не повод: рабочие подходы делаются одним весом, чтобы
+      // их можно было сравнить между собой и с прошлой неделей. Прибавку за
+      // закрытую цель выдаст межсессионная прогрессия, и выдаст один раз,
+      // а не дважды за ту же работу.
+      if (reps != null && repMax != null && reps > repMax) {
         return {
           action: 'continue',
           weight: stepKg(currentKg, grid, 1),
-          note: `Повторы закрыты (${reps} при цели до ${repMax}) — вес растёт`,
+          note: `Повторов вышло ${reps} при цели ${repMax} — вес растёт уже сейчас`,
         }
       }
       return { action: 'continue', weight: snapKg(currentKg, grid, 'nearest') }
@@ -409,14 +404,14 @@ export function reanchorRamp(args: {
 }
 
 /**
- * Ограничение рампы по ходу дела.
+ * Срезает остаток упражнения, если подводящий дался тяжелее ожидаемого.
  *
- * Подводящий подход прошёл тяжелее ожидаемого — значит запланированный верх
- * сегодня не твой. Срезаем остаток, вместо того чтобы вести тебя в подход,
- * к которому ты явно не готов. Это ровно тот момент, где «страшновато»
- * обычно решается на глаз.
+ * Это и есть «переходим выше или нет»: подводка существует затем, чтобы
+ * решение о рабочем весе принималось по сегодняшнему самочувствию, а не
+ * по записи недельной давности.
  *
- * Возвращает остаток плана после подхода с индексом doneIndex.
+ * Срезается рабочий вес — и сразу для всех оставшихся рабочих подходов:
+ * если 80 пошло на пределе, то 90 не станет легче к третьему подходу.
  */
 export function capRamp(args: {
   sets: SetPlan[]
@@ -435,31 +430,27 @@ export function capRamp(args: {
   if (feedback === 'failed') {
     return {
       remaining: [],
-      note: 'Подводящий не добит — верхний подход сегодня пропускаем',
+      note: 'Подводящий не добит — рабочие подходы сегодня пропускаем',
     }
   }
 
-  if (feedback === 'limit') {
-    const capKg = stepKg(doneKg, grid, 1).weightKg
-    const planned = rest[rest.length - 1]
-    const topKg = Math.min(capKg, planned.weight.weightKg)
+  if (feedback !== 'limit') return { remaining: rest }
 
-    // Верхний подход остаётся всегда — иначе за подход не зацепится прогрессия.
-    const topSet: SetPlan = {
-      ...planned,
-      role: 'working',
-      weight: snapKg(topKg, grid, 'nearest'),
-    }
-    const lead = rest
-      .slice(0, -1)
-      .filter((x) => x.weight.weightKg < topSet.weight.weightKg)
-      .map((x): SetPlan => ({ ...x, role: 'ramp' }))
+  const working = rest.filter((x) => x.role === 'working')
+  if (working.length === 0) return { remaining: rest }
 
-    return {
-      remaining: [...lead, topSet],
-      note: 'Подводящий был на пределе — верх срезан на одну ступень',
-    }
+  const capKg = stepKg(doneKg, grid, 1).weightKg
+  const topKg = Math.min(capKg, working[working.length - 1].weight.weightKg)
+  const top = snapKg(topKg, grid, 'nearest')
+
+  // Рабочие подходы остаются всегда — иначе за упражнение не зацепится
+  // прогрессия. Подводящие, которые после среза оказались не легче рабочего
+  // веса, отпадают: подводить уже не к чему.
+  const lead = rest.filter((x) => x.role === 'ramp' && x.weight.weightKg < top.weightKg)
+  const capped = working.map((x): SetPlan => ({ ...x, weight: top }))
+
+  return {
+    remaining: [...lead, ...capped],
+    note: 'Подводящий был на пределе — рабочий вес срезан на ступень',
   }
-
-  return { remaining: rest }
 }

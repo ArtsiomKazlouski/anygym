@@ -165,7 +165,6 @@ const EXERCISES: ExerciseSeed[] = [
 
 type ItemSeed = {
   exercise: string
-  scheme: 'straight' | 'ramp'
   sets?: number
   rampPercents?: number[]
   note?: string
@@ -174,44 +173,36 @@ type ItemSeed = {
 const ITEMS: ItemSeed[] = [
   {
     exercise: 'bench',
-    scheme: 'ramp',
-    rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
+    rampPercents: [0.2, 0.6, 0.8, 0.9],
     note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
   },
   {
     exercise: 'db45',
-    scheme: 'ramp',
-    rampPercents: [0.6, 0.72, 0.89, 1],
+    rampPercents: [0.6, 0.72, 0.89],
   },
   {
     exercise: 'db30',
-    scheme: 'straight',
     sets: 2,
   },
   {
     exercise: 'pec',
-    scheme: 'straight',
     sets: 4,
   },
   {
     exercise: 'curl_seated',
-    scheme: 'straight',
     sets: 4,
   },
   {
     exercise: 'curl_ez',
-    scheme: 'straight',
     sets: 4,
   },
   {
     exercise: 'hammer',
-    scheme: 'straight',
     sets: 3,
   },
   {
     exercise: 'abs',
-    scheme: 'ramp',
-    rampPercents: [0.6, 0.8, 1],
+    rampPercents: [0.6, 0.8],
   },
 ]
 
@@ -309,7 +300,6 @@ if (!existingTemplate) {
       templateId: tpl.id,
       position: i,
       exerciseId: exerciseIds.get(it.exercise)!,
-      scheme: it.scheme,
       sets: it.sets ?? 3,
       rampPercents: it.rampPercents,
       note: it.note,

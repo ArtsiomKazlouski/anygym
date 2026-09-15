@@ -52,7 +52,6 @@ export async function buildItemPlan(args: {
   gymId: string
   sessionId: string
   exerciseId: string
-  scheme: 'straight' | 'ramp'
   sets: number
   rampPercents: number[] | null
   repMin: number
@@ -92,7 +91,6 @@ export async function buildItemPlan(args: {
     last.at && new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' }).format(last.at)
 
   const prescription = prescribe({
-    scheme: args.scheme,
     grid,
     repMin: args.repMin,
     repMax: args.repMax,
@@ -170,9 +168,9 @@ export async function buildItemPlan(args: {
   const previous = done > 0 ? args.logged[done - 1] : null
   const previousPlan = done > 0 ? prescription.sets[done - 1] : null
 
-  // Поставил не тот вес, что предложен — остаток рампы едет пропорционально.
+  // Поставил не тот вес, что предложен — остаток подводки едет пропорционально.
   let effective = prescription.sets
-  if (args.scheme === 'ramp' && previous && previousPlan) {
+  if (previous && previousPlan) {
     const re = reanchorRamp({
       sets: prescription.sets,
       doneIndex: done - 1,
@@ -190,7 +188,7 @@ export async function buildItemPlan(args: {
   let remaining = effective.slice(done)
 
   if (previous?.feedback) {
-    if (args.scheme === 'ramp' && previous.kind === 'ramp') {
+    if (previous.kind === 'ramp') {
       // Подводящий дался тяжелее ожидаемого — срезаем остаток рампы.
       const capped = capRamp({
         sets: effective,

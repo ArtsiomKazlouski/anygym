@@ -11,27 +11,25 @@ const field =
 /**
  * Пункт плана. Одна форма на добавление и на правку.
  *
- * Ступени рампы вводятся в килограммах — «20, 60, 80, 90, 100», как человек их
- * и держит в голове. Хранятся долями от верхнего веса, чтобы ехать вместе
- * с ним при прогрессии: вырос верх — вся подводка поехала за ним.
+ * Подводка вводится в килограммах — «20, 40, 60, 80, 90», как человек её и
+ * держит в голове, последним числом рабочий вес. Хранится долями от рабочего,
+ * чтобы ехать вместе с ним: вырос рабочий — вся лестница поехала за ним.
  */
 export function TemplateItemForm({
   action,
   templateId,
   item,
-  declaredKg,
+  workingKg,
   catalog,
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>
   templateId: string
   item?: Item
-  declaredKg?: number | null
+  workingKg?: number | null
   catalog: Exercise[]
   submitLabel: string
 }) {
-  const isRamp = item?.scheme === 'ramp'
-
   return (
     <form action={action} className="flex flex-col gap-2">
       <input type="hidden" name="templateId" value={templateId} />
@@ -53,38 +51,29 @@ export function TemplateItemForm({
         ))}
       </select>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs opacity-55">Схема</span>
-          <select name="scheme" defaultValue={item?.scheme ?? 'straight'} className={field}>
-            <option value="straight">прямая</option>
-            <option value="ramp">рампа</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs opacity-55">Подходы</span>
-          <input
-            name="sets"
-            inputMode="numeric"
-            defaultValue={item?.sets ?? 3}
-            className={field}
-          />
-        </label>
-      </div>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs opacity-55">Рабочих подходов</span>
+        <input
+          name="sets"
+          inputMode="numeric"
+          defaultValue={item?.sets ?? 3}
+          className={field}
+        />
+      </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs opacity-55">Ступени рампы, кг</span>
+        <span className="text-xs opacity-55">Подводка, кг</span>
         <input
           name="rampWeights"
-          placeholder="20, 60, 80, 90, 100"
-          defaultValue={isRamp ? rampWeightsFromPercents(item?.rampPercents, declaredKg) : ''}
+          placeholder="20, 40, 60, 80, 90"
+          defaultValue={rampWeightsFromPercents(item?.rampPercents, workingKg)}
           className={field}
         />
         <span className="text-xs opacity-40">
-          Только для рампы. Верхняя ступень — рабочий подход; остальные поедут за ним, когда он
-          вырастет, поэтому число подходов при рампе берётся отсюда, а не из поля выше. Показаны
-          для текущего рабочего веса и могут выйти дробными — в зале движок округлит их по сетке
-          железки.
+          Ступени до рабочего веса, последним числом — сам рабочий вес: он задаёт масштаб и в
+          подводку не входит. Пусто — упражнение начинается сразу с рабочего. Повторы на
+          подводке те же, что в упражнении. Числа показаны для текущего рабочего веса и поедут
+          вместе с ним; в зале движок положит их на удобные для блинов ступени.
         </span>
       </label>
 

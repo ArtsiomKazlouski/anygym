@@ -27,7 +27,7 @@ type Props = {
       extraSets: number
       deferredCount: number
     }
-    templateItem: { note: string | null; scheme: 'straight' | 'ramp' } | null
+    templateItem: { note: string | null } | null
     exercise: { id: string; name: string } | null
   }
   logged: Logged[]
@@ -108,9 +108,7 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
                 {(item.status === 'pending' || item.status === 'active') &&
                   (logged.length > 0
                     ? `начато, подходов ${logged.length}`
-                    : row.templateItem?.scheme === 'ramp'
-                      ? `рампа · ${item.repMax} повт`
-                      : `${item.targetSets} подх. × ${item.repMax}`)}
+                    : `${item.targetSets} подх. × ${item.repMax}`)}
               </span>
             </SubmitButton>
           </form>
@@ -168,25 +166,24 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
       {plan && plan.planned.length > 0 && (
         <div className="mt-3">
           <div className="text-xs opacity-40">
-            {plan.prescription.scheme === 'ramp'
-              ? `План: ${plan.planned.length} подх., верх ${plan.planned[plan.planned.length - 1].weight.weight} ${plan.grid.units}`
-              : `План: ${plan.planned.length} подх. × ${plan.repMax}`}
+            {(() => {
+              const lead = plan.planned.filter((s) => s.role === 'ramp').length
+              const work = plan.planned.length - lead
+              return lead > 0
+                ? `План: подводка ${lead}, работа ${work} × ${plan.repMax}`
+                : `План: ${work} подх. × ${plan.repMax}`
+            })()}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {plan.planned.map((s, i) => {
               const actual = logged[i]
               const state = actual ? 'done' : i === logged.length ? 'now' : 'next'
               const mark = s.role === 'warmup' ? '°' : s.role === 'ramp' ? '~' : ''
-              const isRamp = plan.prescription.scheme === 'ramp'
 
-              // Сделанный подход показывает факт. Запланированный — ориентир:
-              // в прямой схеме это один и тот же вес, повторять его цифрами
-              // в каждой плашке нечего, цель уже написана в шапке.
-              const text = actual
-                ? `${actual.weight}×${actual.reps}`
-                : isRamp
-                  ? `${s.weight.weight}×${s.reps[1]}`
-                  : `${s.weight.weight}`
+              // Сделанный подход показывает факт. Запланированный — только вес:
+              // повторы у всех подходов одни и те же, и цель уже написана
+              // в шапке, повторять её в каждой плашке нечего.
+              const text = actual ? `${actual.weight}×${actual.reps}` : `${s.weight.weight}`
 
               return (
                 <span

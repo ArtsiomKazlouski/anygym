@@ -22,14 +22,19 @@ describe('разбор списка чисел', () => {
 })
 
 describe('ступени рампы из килограммов', () => {
-  it('переводит реальный жим в доли', () => {
-    const { percents } = rampPercentsFromWeights('20, 60, 80, 90, 100')
-    assert.deepEqual(percents, [0.2, 0.6, 0.8, 0.9, 1])
+  it('переводит реальный жим в доли, рабочий вес не считая подводкой', () => {
+    const { percents } = rampPercentsFromWeights('20, 40, 60, 80, 90')
+    assert.deepEqual(percents, [0.222, 0.444, 0.667, 0.889])
   })
 
-  it('верхняя ступень всегда единица', () => {
+  it('все ступени строго легче рабочего веса', () => {
     const { percents } = rampPercentsFromWeights('22, 26, 32, 36')
-    assert.equal(percents?.at(-1), 1)
+    assert.ok(percents?.every((p) => p < 1))
+    assert.equal(percents?.length, 3, 'последнее число — рабочий вес, а не ступень')
+  })
+
+  it('одно число означает, что подводки нет', () => {
+    assert.equal(rampPercentsFromWeights('90').percents, null)
   })
 
   it('требует возрастания', () => {

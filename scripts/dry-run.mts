@@ -31,7 +31,6 @@ for (const it of items) {
     gymId: gym.id,
     sessionId: '00000000-0000-0000-0000-000000000000',
     exerciseId: ex.id,
-    scheme: it.scheme,
     sets: it.sets,
     rampPercents: it.rampPercents,
     ...rangeFromTarget(ex.targetReps),
@@ -41,8 +40,9 @@ for (const it of items) {
 
   const head = `${it.position + 1}. ${ex.name}`
   console.log(head)
+  const lead = it.rampPercents?.length ?? 0
   console.log(
-    `   ${muscleTitle(ex.muscleGroup)} · ${it.scheme === 'ramp' ? 'рампа' : 'прямая'}`,
+    `   ${muscleTitle(ex.muscleGroup)} · ${lead > 0 ? `подводка ${lead} + ` : ''}${it.sets} рабочих`,
   )
 
   if (!plan?.prescription.top) {
