@@ -10,7 +10,7 @@ const KINDS = [
   { value: 'dumbbell', label: 'Гантели' },
   { value: 'barbell', label: 'Штанга' },
   { value: 'cable', label: 'Трос' },
-  { value: 'bodyweight', label: 'Свой вес' },
+  { value: 'bodyweight', label: 'Свой вес, без отягощения' },
 ] as const
 
 const field =
@@ -99,7 +99,7 @@ export function EquipmentForm({
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Labelled label="Минимум">
+        <Labelled label="Минимум" hint="0 — без отягощения">
           <input
             name="minWeight"
             inputMode="decimal"
@@ -136,6 +136,13 @@ export function EquipmentForm({
           className={field}
         />
       </Labelled>
+
+      <p className="text-xs opacity-40">
+        Турник и брусья: если иногда вешаешь блины — выбирай «Блины», минимум 0 и шаг равный
+        самому лёгкому блину. Ноль будет означать работу со своим весом, остальное — добавку.
+        «Свой вес» ставь, только если отягощение не используешь никогда: сетки весов у него нет,
+        и расти можно лишь в повторах.
+      </p>
 
       <Labelled label="Заметка">
         <input name="notes" defaultValue={model?.notes ?? ''} className={field} />

@@ -115,7 +115,8 @@ export async function logSet(formData: FormData) {
   const prescribed = formData.get('prescribedKg')
   const source = String(formData.get('source') ?? '') || null
 
-  if (!Number.isFinite(weight) || weight <= 0) throw new Error('Некорректный вес')
+  // Ноль допустим: работа со своим весом — это ноль отягощения, а не ошибка.
+  if (!Number.isFinite(weight) || weight < 0) throw new Error('Некорректный вес')
   if (!Number.isFinite(reps) || reps <= 0) throw new Error('Некорректные повторы')
 
   const [exercise] = await db

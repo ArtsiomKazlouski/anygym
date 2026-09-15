@@ -51,15 +51,16 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
       </header>
 
       <section>
-        <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Фото</h2>
+        <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Сетка весов</h2>
         <p className="mb-3 text-xs opacity-45">
-          Не для красоты: это способ узнать в новом зале, что тренажёр тот же самый. Без
-          узнавания не работает перенос истории между залами.
+          По ней движок решает, какой вес вообще можно назвать, и из неё же строится барабан
+          выбора. Пустое поле означает «не знаю» и оставляет ручной ввод.
         </p>
-        <PhotoUpload
-          modelId={data.model.id}
-          kind={data.model.kind}
-          currentUrl={data.model.hasPhoto ? photoUrl(data.model) : null}
+        <EquipmentForm
+          key={data.model.updatedAt.toISOString()}
+          action={updateEquipment}
+          model={data.model}
+          submitLabel="Сохранить тренажёр"
         />
       </section>
 
@@ -198,16 +199,15 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Сетка весов</h2>
+        <h2 className="mb-2 text-xs uppercase tracking-wide opacity-40">Фото</h2>
         <p className="mb-3 text-xs opacity-45">
-          По ней движок решает, какой вес вообще можно назвать, и из неё же строится барабан
-          выбора. Пустое поле означает «не знаю» и оставляет ручной ввод.
+          Не для красоты: это способ узнать в новом зале, что тренажёр тот же самый. Без
+          узнавания не работает перенос истории между залами.
         </p>
-        <EquipmentForm
-          key={data.model.updatedAt.toISOString()}
-          action={updateEquipment}
-          model={data.model}
-          submitLabel="Сохранить тренажёр"
+        <PhotoUpload
+          modelId={data.model.id}
+          kind={data.model.kind}
+          currentUrl={data.model.hasPhoto ? photoUrl(data.model) : null}
         />
       </section>
     </main>

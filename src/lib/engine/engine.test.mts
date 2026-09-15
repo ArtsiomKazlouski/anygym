@@ -707,3 +707,44 @@ describe('между тренировками решают повторы, а н
     assert.equal(interSessionDelta(sets([14, 9, 'limit'], [14, 15, 'on_target']), 13, 15), -1)
   })
 })
+
+describe('работа со своим весом', () => {
+  // Турник, на который иногда вешают блины: ноль — это без отягощения.
+  const barWithPlates: WeightGrid = { units: 'kg', step: 2.5, min: 0, max: 40 }
+
+  it('ноль входит в список достижимых весов', () => {
+    const opts = gridOptions(barWithPlates)
+    assert.equal(opts[0], 0)
+    assert.ok(opts.includes(2.5))
+  })
+
+  it('от нуля растём на ступень', () => {
+    assert.equal(stepKg(0, barWithPlates, 1).weight, 2.5)
+  })
+
+  it('ниже нуля не уходим', () => {
+    assert.equal(stepKg(0, barWithPlates, -1).weight, 0)
+  })
+
+  it('без сетки вес остаётся нулём, расти можно только в повторах', () => {
+    const pure: WeightGrid = { units: 'kg' }
+    assert.deepEqual(gridOptions(pure), [], 'сетки нет — остаётся ручной ввод')
+    assert.equal(stepKg(0, pure, 1).weight, 0)
+    assert.equal(snapKg(0, pure, 'nearest').weight, 0)
+  })
+
+  it('план на нулевом весе строится', () => {
+    const p = prescribe({
+      scheme: 'straight',
+      grid: barWithPlates,
+      repMin: 6,
+      repMax: 8,
+      sets: 3,
+      lastSessionSets: sets([0, 7, 'limit']),
+      daysSincePattern: 4,
+      painRecent: false,
+    })
+    assert.equal(p.top?.weight, 0)
+    assert.equal(p.sets.length, 3)
+  })
+})
