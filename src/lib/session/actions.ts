@@ -301,9 +301,15 @@ export async function focusItem(formData: FormData) {
   const itemId = String(formData.get('itemId') ?? '')
   const { item } = await ownedItem(userId, itemId)
 
+  // Прежний активный возвращается в очередь — но если в нём есть подходы,
+  // он сделан, а не «ожидает»: иначе переход по списку стирал бы результат.
   await db
     .update(sessionItems)
-    .set({ status: 'pending' })
+    .set({
+      status: sql`case when exists (
+        select 1 from ${setLogs} where ${setLogs.sessionItemId} = ${sessionItems.id}
+      ) then 'done'::session_item_status else 'pending'::session_item_status end`,
+    })
     .where(and(eq(sessionItems.sessionId, item.sessionId), eq(sessionItems.status, 'active')))
 
   await db.update(sessionItems).set({ status: 'active' }).where(eq(sessionItems.id, item.id))
@@ -361,9 +367,16 @@ export async function finishSession(formData: FormData) {
   const userId = await requireUser()
   const sessionId = String(formData.get('sessionId') ?? '')
 
+  // Что записано — сделано, что пусто — пропущено. Раньше незакрытые пункты
+  // помечались пропущенными скопом, и упражнение с подходами теряло свой
+  // статус только оттого, что по нему не нажали «Дальше».
   await db
     .update(sessionItems)
-    .set({ status: 'skipped' })
+    .set({
+      status: sql`case when exists (
+        select 1 from ${setLogs} where ${setLogs.sessionItemId} = ${sessionItems.id}
+      ) then 'done'::session_item_status else 'skipped'::session_item_status end`,
+    })
     .where(
       and(
         eq(sessionItems.sessionId, sessionId),
