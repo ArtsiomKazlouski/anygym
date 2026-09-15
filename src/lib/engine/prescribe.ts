@@ -48,10 +48,11 @@ export type PrescribeContext = {
   /** Подходы сверх плана, добавленные на тренировке. Идут тем же весом. */
   extraSets?: number
   /**
-   * Подводка: доли от рабочего веса, по возрастанию, все строго меньше 1.
+   * Подводка: веса ступеней в килограммах, по возрастанию.
    * Пусто — упражнение начинается сразу с рабочего веса.
+   * Ступени тяжелее рабочего веса отбрасываются.
    */
-  rampPercents?: number[]
+  leadKg?: number[]
   /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ. Подводящие и разминку не передавать. */
   lastSessionSets: LoggedSet[]
   /**
@@ -68,7 +69,7 @@ export type SetPlan = {
   role: SetRole
   weight: SnappedWeight
   reps: readonly [number, number]
-  /** Доля от верхнего веса. Есть только у ступеней рампы и у верхнего подхода. */
+  /** Доля от рабочего веса. Есть только у ступеней подводки. */
   percent?: number
 }
 
@@ -183,23 +184,27 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight): SetPlan[] {
 
   // Подводка округляется своим, грубым шагом: на штанге рабочий вес растёт
   // по 2.5, но вешать 42.5 ради подводящего — возня с мелкими блинами.
-  // Поэтому вес подводки задан долями (едет вместе с рабочим), а ложится
-  // на те ступени, которые реально удобно собрать из блинов.
-  const percents = (ctx.rampPercents ?? []).slice().sort((a, b) => a - b)
+  const lead = (ctx.leadKg ?? []).slice().sort((a, b) => a - b)
   let previousKg = -Infinity
-  for (const p of percents) {
-    if (p >= 1) continue // подводящий не может быть тяжелее рабочего
-    const weight = snapKg(top.weightKg * p, coarse, 'nearest')
+  for (const kg of lead) {
+    const weight = snapKg(kg, coarse, 'nearest')
 
-    // На грубой сетке соседние доли схлопываются: 0.85 и 0.9 от 100 при шаге 20
-    // дают обе 80. Ступень обязана быть строго выше предыдущей и строго ниже
-    // рабочего веса — иначе это не подводка, а повтор.
+    // Ступень обязана быть строго выше предыдущей и строго ниже рабочего веса.
+    // Первое отсекает схлопнувшиеся на грубой сетке, второе — подводку,
+    // переросшую рабочий вес после отката за паузу: подводить уже не к чему.
     if (weight.weightKg <= previousKg || weight.weightKg >= top.weightKg) continue
     previousKg = weight.weightKg
 
     // Повторы на подводке те же, что в упражнении. Считать их отдельно значит
     // решать за человека, как ему разминаться, — а этого приложение не знает.
-    plan.push({ role: 'ramp', weight, reps: [repMin, repMax], percent: p })
+    plan.push({
+      role: 'ramp',
+      weight,
+      reps: [repMin, repMax],
+      // Доля от рабочего веса нужна пересчёту (reanchorRamp): по лёгкой
+      // ступени судить о рабочем весе нельзя.
+      percent: weight.weightKg / top.weightKg,
+    })
   }
 
   for (let i = 0; i < Math.max(1, ctx.sets ?? 3) + (ctx.extraSets ?? 0); i++) {

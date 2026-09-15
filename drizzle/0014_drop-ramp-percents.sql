@@ -1,0 +1,1 @@
+ALTER TABLE "template_item" DROP COLUMN "ramp_percents";

@@ -166,19 +166,19 @@ const EXERCISES: ExerciseSeed[] = [
 type ItemSeed = {
   exercise: string
   sets?: number
-  rampPercents?: number[]
+  leadKg?: number[]
   note?: string
 }
 
 const ITEMS: ItemSeed[] = [
   {
     exercise: 'bench',
-    rampPercents: [0.2, 0.6, 0.8, 0.9],
+    leadKg: [20, 60, 80, 90],
     note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
   },
   {
     exercise: 'db45',
-    rampPercents: [0.6, 0.72, 0.89],
+    leadKg: [22, 26, 32],
   },
   {
     exercise: 'db30',
@@ -202,7 +202,7 @@ const ITEMS: ItemSeed[] = [
   },
   {
     exercise: 'abs',
-    rampPercents: [0.6, 0.8],
+    leadKg: [33, 44],
   },
 ]
 
@@ -301,7 +301,7 @@ if (!existingTemplate) {
       position: i,
       exerciseId: exerciseIds.get(it.exercise)!,
       sets: it.sets ?? 3,
-      rampPercents: it.rampPercents,
+      leadKg: it.leadKg,
       note: it.note,
     })),
   )

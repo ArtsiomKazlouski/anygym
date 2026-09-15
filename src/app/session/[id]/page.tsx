@@ -45,7 +45,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               sessionId: data.session.id,
               exerciseId: row.item.exerciseId,
               sets: row.item.targetSets,
-              rampPercents: row.templateItem?.rampPercents ?? null,
+              leadKg: row.templateItem?.leadKg ?? undefined,
               repMin: row.item.repMin,
               repMax: row.item.repMax,
               extraSets: row.item.extraSets,

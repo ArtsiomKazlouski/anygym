@@ -11,10 +11,9 @@ import {
   renameTemplate,
   updateTemplateItem,
 } from '@/lib/templates/actions'
-import { lastWorkingSets } from '@/lib/equipment/queries'
 import { templateWithItems } from '@/lib/templates/queries'
 import { MUSCLES, muscleTitle } from '@/lib/muscles'
-import { leadWeights } from '@/lib/templates/parse'
+import { leadKgToInput } from '@/lib/templates/parse'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -26,10 +25,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [data, lastSets] = await Promise.all([
-    templateWithItems(userId, id),
-    lastWorkingSets(userId),
-  ])
+  const data = await templateWithItems(userId, id)
   if (!data) redirect('/templates')
 
   // Сколько рабочих подходов план даёт каждой мышце. Вопрос «не много ли
@@ -79,10 +75,9 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         {data.items.map(({ item, exerciseName, muscleGroup, targetReps }, index) => {
           // Вес подводки, а не только её длина: «подводка 2» не отвечает
           // на вопрос, который к плану задают, — что вешать.
-          const lead = leadWeights(item.rampPercents, lastSets.get(item.exerciseId)?.weight)
+          const lead = leadKgToInput(item.leadKg)
           const summary =
-            (lead.length > 0 ? `подводка ${lead.join(', ')} · ` : '') +
-            `${item.sets} подх. × ${targetReps}`
+            (lead ? `подводка ${lead} · ` : '') + `${item.sets} подх. × ${targetReps}`
 
           return (
             <details
@@ -121,16 +116,10 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
 
               <div className="mt-2">
                 <TemplateItemForm
-                  key={JSON.stringify([
-                    item.exerciseId,
-                    item.sets,
-                    item.rampPercents,
-                    item.note,
-                  ])}
+                  key={JSON.stringify([item.exerciseId, item.sets, item.leadKg, item.note])}
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}
-                  workingKg={lastSets.get(item.exerciseId)?.weight ?? null}
                   catalog={data.catalog}
                   submitLabel="Сохранить пункт"
                 />

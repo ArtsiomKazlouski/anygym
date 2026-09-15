@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import {
-  parseNumbers,
-  rampPercentsFromWeights,
-  rampWeightsFromPercents,
-  rangeFromTarget,
-} from './parse.ts'
+import { leadKgFromInput, leadKgToInput, parseNumbers, rangeFromTarget } from './parse.ts'
 
 describe('разбор списка чисел', () => {
   it('понимает запятые и пробелы', () => {
@@ -21,34 +16,26 @@ describe('разбор списка чисел', () => {
   })
 })
 
-describe('ступени рампы из килограммов', () => {
-  it('переводит реальный жим в доли, рабочий вес не считая подводкой', () => {
-    const { percents } = rampPercentsFromWeights('20, 40, 60, 80, 90')
-    assert.deepEqual(percents, [0.222, 0.444, 0.667, 0.889])
+describe('подводка в килограммах', () => {
+  it('хранит ровно те числа, что ввели', () => {
+    assert.deepEqual(leadKgFromInput('60, 80').values, [60, 80])
   })
 
-  it('все ступени строго легче рабочего веса', () => {
-    const { percents } = rampPercentsFromWeights('22, 26, 32, 36')
-    assert.ok(percents?.every((p) => p < 1))
-    assert.equal(percents?.length, 3, 'последнее число — рабочий вес, а не ступень')
+  it('туда и обратно сходится без искажений', () => {
+    const { values } = leadKgFromInput('20, 60, 80')
+    assert.equal(leadKgToInput(values), '20, 60, 80')
   })
 
-  it('одно число означает, что подводки нет', () => {
-    assert.equal(rampPercentsFromWeights('90').percents, null)
+  it('пустое поле — подводки нет, а не ошибка', () => {
+    assert.deepEqual(leadKgFromInput('  '), { values: null })
   })
 
   it('требует возрастания', () => {
-    assert.ok(rampPercentsFromWeights('60, 80, 70').error)
+    assert.ok(leadKgFromInput('60, 80, 70').error)
   })
 
-  it('туда и обратно сходится', () => {
-    const { percents } = rampPercentsFromWeights('20, 60, 80, 90, 100')
-    assert.equal(rampWeightsFromPercents(percents, 100), '20, 60, 80, 90, 100')
-  })
-
-  it('пересчитывает под новый верх', () => {
-    const { percents } = rampPercentsFromWeights('20, 60, 80, 90, 100')
-    assert.equal(rampWeightsFromPercents(percents, 110), '22, 66, 88, 99, 110')
+  it('дробные ступени разбирает: гантели бывают по 2.5', () => {
+    assert.deepEqual(leadKgFromInput('12.5, 17.5').values, [12.5, 17.5])
   })
 })
 

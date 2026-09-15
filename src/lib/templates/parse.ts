@@ -1,13 +1,8 @@
 /**
  * Разбор подводки и целевых повторов.
  *
- * Подводка вводится в килограммах — «20, 40, 60, 80, 90», как человек её и
- * держит в голове, — а хранится долями рабочего веса, чтобы ехать вместе с ним
- * при прогрессии.
- *
- * Последнее число в строке — рабочий вес. Он задаёт масштаб и сам в подводку
- * не попадает: иначе пришлось бы знать рабочий вес заранее, а его знает
- * история, а не человек у формы.
+ * Подводка вводится и хранится в килограммах: «60, 80» — это то, что
+ * вешается на штангу перед рабочими подходами.
  */
 
 export type NumbersResult = { values: number[]; error?: string }
@@ -28,61 +23,34 @@ export function parseNumbers(input: string): NumbersResult {
 }
 
 /**
- * Килограммы ступеней -> доли рабочего веса, строго меньше единицы.
+ * Строка поля -> веса ступеней подводки.
  *
- * Последнее число — рабочий вес, оно задаёт масштаб и в подводку не входит.
- * Одно число означает «подводки нет»: назвали только рабочий вес.
- * Значения должны идти по возрастанию — подводка на то и подводка.
+ * Что человек ввёл, то и хранится: «60, 80» остаётся шестьюдесятью
+ * и восемьюдесятью. Раньше здесь считались доли рабочего веса — они ехали
+ * вместе с ним, но на экране превращались в 66.7 и 88.9, и человек переставал
+ * узнавать собственный ввод. Цена отказа от долей известна: когда рабочий вес
+ * заметно вырастет, подводку придётся поправить руками. Это одно поле раз
+ * в несколько месяцев против нечитаемых чисел каждый раз.
  */
-export function rampPercentsFromWeights(input: string): {
-  percents: number[] | null
+export function leadKgFromInput(input: string): {
+  values: number[] | null
   error?: string
 } {
   const { values, error } = parseNumbers(input)
-  if (error) return { percents: null, error }
-  if (values.length <= 1) return { percents: null }
+  if (error) return { values: null, error }
+  if (values.length === 0) return { values: null }
 
   for (let i = 1; i < values.length; i++) {
     if (values[i] <= values[i - 1]) {
-      return { percents: null, error: 'Ступени должны расти: 20, 40, 60, 80, 90' }
+      return { values: null, error: 'Ступени должны расти: 60, 80' }
     }
   }
-
-  const top = values[values.length - 1]
-  return {
-    percents: values.slice(0, -1).map((w) => Math.round((w / top) * 1000) / 1000),
-  }
+  return { values }
 }
 
-const round = (w: number) => Math.round(w * 10) / 10
-
-/**
- * Доли обратно в килограммы — ступени подводки без рабочего веса.
- *
- * Число приблизительное: точный вес зависит от сетки конкретной железки,
- * а план не привязан к залу. В зале движок положит ступени на реальные
- * ступени сетки.
- */
-export function leadWeights(
-  percents: number[] | null | undefined,
-  topKg: number | null | undefined,
-): number[] {
-  if (!percents || percents.length === 0) return []
-  const top = topKg && topKg > 0 ? topKg : 100
-  return percents.map((p) => round(p * top))
-}
-
-/**
- * То же самое строкой для поля ввода: рабочий вес дописывается последним,
- * чтобы человек видел ту же строку, которую туда вводил.
- */
-export function rampWeightsFromPercents(
-  percents: number[] | null | undefined,
-  topKg: number | null | undefined,
-): string {
-  const lead = leadWeights(percents, topKg)
-  if (lead.length === 0) return ''
-  return [...lead, round(topKg && topKg > 0 ? topKg : 100)].join(', ')
+/** Обратно в строку поля — ровно те числа, что лежат в базе. */
+export function leadKgToInput(values: number[] | null | undefined): string {
+  return (values ?? []).join(', ')
 }
 
 /**

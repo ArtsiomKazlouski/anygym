@@ -53,7 +53,7 @@ export async function buildItemPlan(args: {
   sessionId: string
   exerciseId: string
   sets: number
-  rampPercents: number[] | null
+  leadKg: number[] | undefined
   repMin: number
   repMax: number
   extraSets: number
@@ -96,7 +96,7 @@ export async function buildItemPlan(args: {
     repMax: args.repMax,
     sets: args.sets,
     extraSets: args.extraSets,
-    rampPercents: args.rampPercents ?? undefined,
+    leadKg: args.leadKg,
     lastSessionSets: last.sets,
     daysSinceMuscle: days,
     painRecent: pain,

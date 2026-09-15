@@ -32,7 +32,7 @@ for (const it of items) {
     sessionId: '00000000-0000-0000-0000-000000000000',
     exerciseId: ex.id,
     sets: it.sets,
-    rampPercents: it.rampPercents,
+    leadKg: it.leadKg ?? undefined,
     ...rangeFromTarget(ex.targetReps),
     extraSets: 0,
     logged: [],
@@ -40,7 +40,7 @@ for (const it of items) {
 
   const head = `${it.position + 1}. ${ex.name}`
   console.log(head)
-  const lead = it.rampPercents?.length ?? 0
+  const lead = it.leadKg?.length ?? 0
   console.log(
     `   ${muscleTitle(ex.muscleGroup)} · ${lead > 0 ? `подводка ${lead} + ` : ''}${it.sets} рабочих`,
   )

@@ -1,5 +1,5 @@
 import { SubmitButton } from '@/components/submit-button'
-import { rampWeightsFromPercents } from '@/lib/templates/parse'
+import { leadKgToInput } from '@/lib/templates/parse'
 import type { templateItems } from '@/db/schema'
 
 type Item = typeof templateItems.$inferSelect
@@ -11,22 +11,18 @@ const field =
 /**
  * Пункт плана. Одна форма на добавление и на правку.
  *
- * Подводка вводится в килограммах — «20, 40, 60, 80, 90», как человек её и
- * держит в голове, последним числом рабочий вес. Хранится долями от рабочего,
- * чтобы ехать вместе с ним: вырос рабочий — вся лестница поехала за ним.
+ * Подводка вводится и хранится в килограммах: что ввёл, то и увидишь.
  */
 export function TemplateItemForm({
   action,
   templateId,
   item,
-  workingKg,
   catalog,
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>
   templateId: string
   item?: Item
-  workingKg?: number | null
   catalog: Exercise[]
   submitLabel: string
 }) {
@@ -65,8 +61,8 @@ export function TemplateItemForm({
         <span className="text-xs opacity-55">Подводка, кг</span>
         <input
           name="rampWeights"
-          placeholder="20, 40, 60, 80, 90"
-          defaultValue={rampWeightsFromPercents(item?.rampPercents, workingKg)}
+          placeholder="60, 80"
+          defaultValue={leadKgToInput(item?.leadKg)}
           className={field}
         />
         <span className="text-xs opacity-40">

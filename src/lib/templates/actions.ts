@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db'
 import { exercises, templateItems, templates } from '@/db/schema'
-import { rampPercentsFromWeights } from './parse'
+import { leadKgFromInput } from './parse'
 
 async function requireUser() {
   const session = await auth()
@@ -67,19 +67,17 @@ export async function archiveTemplate(formData: FormData) {
 /**
  * Разбор полей пункта.
  *
- * Подводка вводится в килограммах — так её держат в голове, — а хранится
- * долями рабочего веса, чтобы ступени ехали вместе с ним при прогрессии.
- * Пустое поле означает «подводки нет», а не ошибку: большинству упражнений
+ * Пустая подводка — это «её нет», а не ошибка: большинству упражнений
  * она не нужна.
  */
 function itemFieldsFrom(formData: FormData) {
   // Целевых повторов здесь нет: это свойство упражнения, а не плана.
-  const { percents, error } = rampPercentsFromWeights(str(formData, 'rampWeights'))
+  const { values, error } = leadKgFromInput(str(formData, 'rampWeights'))
   if (error) throw new Error(error)
 
   return {
     sets: Number(str(formData, 'sets')) || 3,
-    rampPercents: percents,
+    leadKg: values,
     note: str(formData, 'note') || null,
   }
 }

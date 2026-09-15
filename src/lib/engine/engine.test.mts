@@ -334,7 +334,7 @@ describe('рампа', () => {
       repMin: 8,
       repMax: 10,
       sets: 3,
-      rampPercents: [0.222, 0.444, 0.667, 0.889],
+      leadKg: [20, 40, 60, 80],
       lastSessionSets: sets([90, 9, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -362,7 +362,7 @@ describe('рампа', () => {
       repMin: 8,
       repMax: 10,
       sets: 3,
-      rampPercents: [0.222, 0.444, 0.667, 0.889],
+      leadKg: [20, 40, 60, 80],
       lastSessionSets: sets([100, 9, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -397,7 +397,7 @@ describe('рампа', () => {
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9],
+      leadKg: [20, 60, 80, 90],
       // пять повторов при цели шесть: диапазон не закрыт, вес держим
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
@@ -425,7 +425,7 @@ describe('рампа', () => {
       grid: cityfitDumbbells,
       repMin: 10,
       repMax: 12,
-      rampPercents: [0.6, 0.72, 0.89],
+      leadKg: [22, 26, 32],
       lastSessionSets: sets([36, 10, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -443,7 +443,7 @@ describe('рампа', () => {
       grid: cityfitDumbbells,
       repMin: 10,
       repMax: 12,
-      rampPercents: [0.55, 0.7, 0.85],
+      leadKg: [16, 21, 26],
       lastSessionSets: sets([30, 12, 'easy']),
       daysSinceMuscle: 5,
       painRecent: false,
@@ -462,7 +462,7 @@ describe('рампа', () => {
       grid: stack(20, 20),
       repMin: 8,
       repMax: 12,
-      rampPercents: [0.8, 0.85, 0.9],
+      leadKg: [80, 85, 90],
       lastSessionSets: sets([100, 10, 'on_target']),
       daysSinceMuscle: 5,
       painRecent: false,
@@ -478,7 +478,7 @@ describe('рампа', () => {
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8, 0.9],
+      leadKg: [60, 80, 90],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -494,7 +494,7 @@ describe('рампа', () => {
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8, 0.9],
+      leadKg: [60, 80, 90],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -517,7 +517,7 @@ describe('пересчёт рампы под фактический вес', () 
       grid: olympicBar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9],
+      leadKg: [20, 60, 80, 90],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -666,19 +666,36 @@ describe('грубый шаг для подводящих', () => {
       grid: bar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.2, 0.6, 0.8, 0.9],
+      leadKg: [20, 60, 80, 90],
       // пять повторов при цели шесть: диапазон не закрыт, верх остаётся
       lastSessionSets: sets([topKg, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
     })
 
-  it('подводящие идут по пятёркам, верхний сохраняет точность', () => {
+  it('подводящие идут по пятёркам, рабочий сохраняет точность', () => {
     const p = plan(102.5)
     assert.deepEqual(
       p.sets.map((s) => s.weight.weight),
       [20, 60, 80, 90, 102.5],
       'вешать 82.5 ради разминки — возня с блинами по 1.25 на сторону',
+    )
+  })
+
+  it('ступень не на сетке ложится на ближайшую пятёрку', () => {
+    const p = prescribe({
+      sets: 1,
+      grid: bar,
+      repMin: 5,
+      repMax: 6,
+      leadKg: [63, 81],
+      lastSessionSets: sets([100, 5, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [65, 80, 100],
     )
   })
 
@@ -689,7 +706,7 @@ describe('грубый шаг для подводящих', () => {
       grid: bar,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6],
+      leadKg: [60],
       lastSessionSets: sets([100, 6, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -697,21 +714,43 @@ describe('грубый шаг для подводящих', () => {
     assert.equal(p.top?.weight, 102.5)
   })
 
-  it('без rampStep ведёт себя как раньше', () => {
+  it('без rampStep подводка округляется обычным, мелким шагом', () => {
     const fine: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
     const p = prescribe({
       sets: 1,
       grid: fine,
       repMin: 5,
       repMax: 6,
-      rampPercents: [0.6, 0.8],
-      lastSessionSets: sets([102.5, 5, 'on_target']),
+      leadKg: [63, 81],
+      lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
     })
     assert.deepEqual(
       p.sets.map((s) => s.weight.weight),
-      [62.5, 82.5, 102.5],
+      [62.5, 80, 100],
+      'та же подводка на мелкой сетке ложится точнее, чем на грубой',
+    )
+  })
+
+  it('подводка тяжелее рабочего веса отбрасывается', () => {
+    // После отката за паузу рабочий вес просел ниже верхней ступени —
+    // подводить уже не к чему.
+    const p = prescribe({
+      sets: 3,
+      grid: bar,
+      repMin: 8,
+      repMax: 10,
+      leadKg: [60, 80],
+      lastSessionSets: sets([85, 9, 'on_target']),
+      daysSinceMuscle: 30,
+      painRecent: false,
+    })
+    assert.equal(p.top?.weight, 77.5, 'минус 10% за месяц простоя: 85 -> 76.5 -> 77.5')
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [60, 77.5, 77.5, 77.5],
+      'ступень 80 отброшена: она тяжелее сегодняшнего рабочего веса',
     )
   })
 })
