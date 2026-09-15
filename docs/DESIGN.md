@@ -575,6 +575,7 @@
 | Сбор истории для движка | `src/lib/session/queries.ts`, `plan.ts` |
 | Действия тренировки | `src/lib/session/actions.ts` |
 | Каталог залов и железа | `src/lib/equipment/`, экраны `src/app/gyms`, `src/app/equipment` |
+| Каталог упражнений | экран `src/app/exercises` — цель повторов и рабочий вес |
 | Короткая запись ряда весов | `src/lib/equipment/ladder.ts` |
 | 6. Примеры | `src/lib/engine/engine.test.mts` — каждый пример это тест |
 

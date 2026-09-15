@@ -333,6 +333,7 @@ export async function updateExercise(formData: FormData) {
     })
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
   revalidatePath(`/equipment/${modelId}`)
+  revalidatePath('/exercises')
 }
 
 export async function archiveExercise(formData: FormData) {

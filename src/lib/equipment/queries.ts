@@ -29,6 +29,25 @@ export async function gymsWithCounts(userId: string) {
     .orderBy(gyms.name)
 }
 
+/** Весь каталог упражнений: цель повторов правится здесь. */
+export async function allExercises(userId: string) {
+  return db
+    .select({
+      id: exercises.id,
+      name: exercises.name,
+      patternCode: exercises.patternCode,
+      targetReps: exercises.targetReps,
+      declaredWorkingKg: exercises.declaredWorkingKg,
+      modelId: equipmentModels.id,
+      modelName: equipmentModels.name,
+      modelKind: equipmentModels.kind,
+    })
+    .from(exercises)
+    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .where(and(eq(exercises.userId, userId), eq(exercises.isActive, true)))
+    .orderBy(exercises.name)
+}
+
 export async function gymWithEquipment(userId: string, gymId: string) {
   const [gym] = await db
     .select()
