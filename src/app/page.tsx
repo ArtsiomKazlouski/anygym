@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { auth, signOut } from '@/auth'
+import { auth } from '@/auth'
 import { AppNav } from '@/components/app-nav'
 import { BuildFooter } from '@/components/build-footer'
+import { SignOut } from '@/components/sign-out'
 import { SessionRow } from '@/components/session-list'
 import { startSession } from '@/lib/session/actions'
 import { listGyms, listTemplates, recentSessions } from '@/lib/session/queries'
@@ -97,23 +98,7 @@ export default async function Home() {
 
       <BuildFooter version={buildVersion()} />
 
-      {/*
-        «Выйти» стояла в шапке вплотную к разделам. Промахнуться на телефоне
-        легко, а цена высокая: в установленном приложении вход заново идёт
-        через Google без адресной строки и автозаполнения. Здесь по ней
-        не попадёшь случайно.
-      */}
-      <form
-        action={async () => {
-          'use server'
-          await signOut({ redirectTo: '/signin' })
-        }}
-        className="pb-2 text-center"
-      >
-        <SubmitButton className="text-xs opacity-30 hover:opacity-70">
-          Выйти из {session.user?.email}
-        </SubmitButton>
-      </form>
+      <SignOut email={session.user?.email} />
     </main>
   )
 }
