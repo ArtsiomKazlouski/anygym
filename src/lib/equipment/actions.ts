@@ -309,6 +309,7 @@ export async function createExerciseOn(formData: FormData) {
     targetReps: Math.round(num(formData, 'targetReps') ?? 12),
   })
   revalidatePath(`/equipment/${equipmentModelId}`)
+  revalidatePath('/exercises')
 }
 
 export async function updateExercise(formData: FormData) {

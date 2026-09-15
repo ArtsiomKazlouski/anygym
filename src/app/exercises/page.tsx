@@ -4,8 +4,8 @@ import { auth } from '@/auth'
 import { AppNav } from '@/components/app-nav'
 import { EquipmentIcon } from '@/components/equipment-icon'
 import { SubmitButton } from '@/components/submit-button'
-import { updateExercise } from '@/lib/equipment/actions'
-import { allExercises, lastWorkingSets } from '@/lib/equipment/queries'
+import { createExerciseOn, updateExercise } from '@/lib/equipment/actions'
+import { allEquipment, allExercises, lastWorkingSets } from '@/lib/equipment/queries'
 import { PATTERNS, getPattern } from '@/lib/patterns'
 
 const field =
@@ -16,7 +16,11 @@ export default async function ExercisesPage() {
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [list, lastSets] = await Promise.all([allExercises(userId), lastWorkingSets(userId)])
+  const [list, lastSets, equipment] = await Promise.all([
+    allExercises(userId),
+    lastWorkingSets(userId),
+    allEquipment(userId),
+  ])
   const day = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' })
 
   return (
@@ -127,6 +131,74 @@ export default async function ExercisesPage() {
           )
         })}
       </section>
+
+      <details className="rounded-2xl border border-dashed border-black/15 px-4 py-3 dark:border-white/20">
+        <summary className="cursor-pointer text-sm opacity-60">Новое упражнение</summary>
+
+        {equipment.length === 0 ? (
+          <p className="mt-3 text-sm opacity-50">
+            Сначала нужен тренажёр —{' '}
+            <Link href="/gyms" className="underline underline-offset-4">
+              заведи его в разделе «Залы»
+            </Link>
+            . Упражнение всегда делается на чём-то, и от железки зависит сетка весов.
+          </p>
+        ) : (
+          <form action={createExerciseOn} className="mt-3 flex flex-col gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs opacity-55">Название</span>
+              <input
+                name="name"
+                required
+                placeholder="Например «Тяга гантели в наклоне»"
+                className={field}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs opacity-55">На чём делается</span>
+              <select name="modelId" required defaultValue="" className={field}>
+                <option value="" disabled>
+                  выбери тренажёр
+                </option>
+                {equipment.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs opacity-55">Движение</span>
+              <select name="patternCode" required defaultValue="" className={field}>
+                <option value="" disabled>
+                  какое это движение
+                </option>
+                {PATTERNS.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs opacity-55">Целевые повторы</span>
+              <input
+                name="targetReps"
+                inputMode="numeric"
+                defaultValue={12}
+                className={field}
+              />
+            </label>
+            <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
+              Создать
+            </SubmitButton>
+            <p className="text-xs opacity-40">
+              Движение определяет мышечную группу и то, какими упражнениями это можно заменить в
+              зале, где нужной железки нет.
+            </p>
+          </form>
+        )}
+      </details>
     </main>
   )
 }

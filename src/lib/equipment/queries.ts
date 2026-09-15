@@ -79,6 +79,19 @@ export async function lastWorkingSets(userId: string) {
   )
 }
 
+/** Всё оборудование пользователя — для выбора при заведении упражнения. */
+export async function allEquipment(userId: string) {
+  return db
+    .select({
+      id: equipmentModels.id,
+      name: equipmentModels.name,
+      kind: equipmentModels.kind,
+    })
+    .from(equipmentModels)
+    .where(eq(equipmentModels.userId, userId))
+    .orderBy(equipmentModels.name)
+}
+
 /** Весь каталог упражнений: цель повторов правится здесь. */
 export async function allExercises(userId: string) {
   return db

@@ -123,12 +123,21 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
               Сначала заведи упражнения — они создаются на карточке тренажёра в разделе «Залы».
             </p>
           ) : (
-            <TemplateItemForm
-              action={addTemplateItem}
-              templateId={data.template.id}
-              catalog={data.catalog}
-              submitLabel="Добавить"
-            />
+            <>
+              <TemplateItemForm
+                action={addTemplateItem}
+                templateId={data.template.id}
+                catalog={data.catalog}
+                submitLabel="Добавить"
+              />
+              <p className="mt-2 text-xs opacity-40">
+                Нужного упражнения нет в списке?{' '}
+                <Link href="/exercises" className="underline underline-offset-4">
+                  Заведи его в «Упражнениях»
+                </Link>{' '}
+                и вернись сюда.
+              </p>
+            </>
           )}
         </div>
       </details>
