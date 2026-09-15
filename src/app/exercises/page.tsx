@@ -59,19 +59,25 @@ export default async function ExercisesPage() {
             >
               <input type="hidden" name="exerciseId" value={e.id} />
               <input type="hidden" name="modelId" value={e.modelId} />
-              <input name="name" required defaultValue={e.name} className={field} />
-              <select
-                name="patternCode"
-                required
-                defaultValue={e.patternCode}
-                className={field}
-              >
-                {PATTERNS.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs opacity-55">Название</span>
+                <input name="name" required defaultValue={e.name} className={field} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs opacity-55">Движение</span>
+                <select
+                  name="patternCode"
+                  required
+                  defaultValue={e.patternCode}
+                  className={field}
+                >
+                  {PATTERNS.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Целевые повторы</span>
