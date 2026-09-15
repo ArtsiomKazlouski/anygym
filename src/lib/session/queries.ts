@@ -6,7 +6,6 @@ import {
   exercises,
   gymEquipment,
   gyms,
-  patterns,
   sessionItems,
   setLogs,
   templateItems,
@@ -14,6 +13,7 @@ import {
   workoutSessions,
 } from '@/db/schema'
 import type { LoggedSet } from '@/lib/engine'
+import type { MuscleCode } from '@/lib/muscles'
 
 const MS_PER_DAY = 86_400_000
 
@@ -70,49 +70,13 @@ export async function recentSessions(userId: string, limit = 10) {
     .limit(limit)
 }
 
-/** Упражнения, доступные в этом зале под заданный паттерн. */
-export async function alternativesFor(
-  userId: string,
-  gymId: string,
-  patternCode: string,
-  excludeExerciseIds: string[] = [],
-) {
-  const rows = await db
-    .select({
-      id: exercises.id,
-      name: exercises.name,
-      patternCode: exercises.patternCode,
-      notes: exercises.notes,
-      model: equipmentModels,
-      instance: gymEquipment,
-    })
-    .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
-    .innerJoin(
-      gymEquipment,
-      and(eq(gymEquipment.equipmentModelId, equipmentModels.id), eq(gymEquipment.gymId, gymId)),
-    )
-    .where(
-      and(
-        eq(exercises.userId, userId),
-        eq(exercises.isActive, true),
-        eq(exercises.patternCode, patternCode),
-        eq(gymEquipment.isActive, true),
-      ),
-    )
-    .orderBy(exercises.name)
-
-  const excluded = new Set(excludeExerciseIds)
-  return rows.filter((r) => !excluded.has(r.id))
-}
-
 /** Все упражнения пользователя, чья железка есть в этом зале. */
 export async function exercisesInGym(userId: string, gymId: string) {
   return db
     .select({
       id: exercises.id,
       name: exercises.name,
-      patternCode: exercises.patternCode,
+      muscleGroup: exercises.muscleGroup,
       modelName: equipmentModels.name,
     })
     .from(exercises)
@@ -145,25 +109,6 @@ export async function equipmentInGym(userId: string, gymId: string) {
       ),
     )
     .orderBy(equipmentModels.name)
-}
-
-/** Сколько рабочих подходов накоплено по упражнению — этим ранжируются альтернативы. */
-export async function historyVolume(userId: string, exerciseIds: string[]) {
-  if (exerciseIds.length === 0) return new Map<string, number>()
-  const rows = await db
-    .select({ exerciseId: sessionItems.exerciseId, n: sql<number>`count(*)::int` })
-    .from(setLogs)
-    .innerJoin(sessionItems, eq(sessionItems.id, setLogs.sessionItemId))
-    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionItems.sessionId))
-    .where(
-      and(
-        eq(workoutSessions.userId, userId),
-        eq(setLogs.kind, 'working'),
-        sql`${sessionItems.exerciseId} = any(${sql.raw(`array[${exerciseIds.map((id) => `'${id}'`).join(',')}]::uuid[]`)})`,
-      ),
-    )
-    .groupBy(sessionItems.exerciseId)
-  return new Map(rows.map((r) => [r.exerciseId!, r.n]))
 }
 
 /**
@@ -222,20 +167,24 @@ export async function lastSessionSets(
 }
 
 /**
- * Дней с последней работы на паттерн — включая текущую сессию.
+ * Дней с последней работы на мышечную группу — включая текущую сессию.
+ *
+ * Именно группа, а не упражнение: если грудь жали три дня назад, она не
+ * детренирована, и неважно, что конкретно эту разводку не делали месяц.
  * Второе упражнение на ту же группу в один день даёт 0 и отката не получает.
- * null = паттерн не делался никогда.
+ * null = группа не тренировалась никогда.
  */
-export async function daysSincePattern(userId: string, patternCode: string) {
+export async function daysSinceMuscle(userId: string, muscleGroup: MuscleCode) {
   const [row] = await db
     .select({ at: sql<string | null>`max(${setLogs.loggedAt})` })
     .from(setLogs)
     .innerJoin(sessionItems, eq(sessionItems.id, setLogs.sessionItemId))
     .innerJoin(workoutSessions, eq(workoutSessions.id, sessionItems.sessionId))
+    .innerJoin(exercises, eq(exercises.id, sessionItems.exerciseId))
     .where(
       and(
         eq(workoutSessions.userId, userId),
-        eq(sessionItems.patternCode, patternCode),
+        eq(exercises.muscleGroup, muscleGroup),
         eq(setLogs.kind, 'working'),
       ),
     )
@@ -271,33 +220,6 @@ export async function painRecent(userId: string, exerciseId: string) {
   return (row?.n ?? 0) > 0
 }
 
-/**
- * База для разведки: рабочий вес на другом упражнении того же паттерна,
- * у которого больше всего истории.
- */
-export async function probeBaseKg(
-  userId: string,
-  patternCode: string,
-  excludeExerciseId: string,
-) {
-  const [row] = await db
-    .select({ weightKg: setLogs.weightKg })
-    .from(setLogs)
-    .innerJoin(sessionItems, eq(sessionItems.id, setLogs.sessionItemId))
-    .innerJoin(workoutSessions, eq(workoutSessions.id, sessionItems.sessionId))
-    .where(
-      and(
-        eq(workoutSessions.userId, userId),
-        eq(sessionItems.patternCode, patternCode),
-        eq(setLogs.kind, 'working'),
-        sql`${sessionItems.exerciseId} <> ${excludeExerciseId}`,
-      ),
-    )
-    .orderBy(desc(setLogs.loggedAt))
-    .limit(1)
-  return row?.weightKg ?? null
-}
-
 /** Запомненные настройки железки: на модель вообще либо на экземпляр в зале. */
 export async function setupFor(
   userId: string,
@@ -318,11 +240,6 @@ export async function setupFor(
     rows.find((r) => r.gymEquipmentId == null) ??
     null
   )
-}
-
-export async function patternTitles() {
-  const rows = await db.select().from(patterns)
-  return new Map(rows.map((p) => [p.code, p]))
 }
 
 export async function templateItemsOf(templateId: string) {

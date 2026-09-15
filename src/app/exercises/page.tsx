@@ -8,11 +8,11 @@ import { createExerciseOn, updateExercise } from '@/lib/equipment/actions'
 import {
   allEquipment,
   allExercises,
-  exercisesPerPattern,
+  exercisesPerMuscle,
   lastWorkingSets,
 } from '@/lib/equipment/queries'
-import { PatternSelect } from '@/components/pattern-select'
-import { getPattern } from '@/lib/patterns'
+import { MuscleSelect } from '@/components/muscle-select'
+import { muscleTitle } from '@/lib/muscles'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -26,7 +26,7 @@ export default async function ExercisesPage() {
     allExercises(userId),
     lastWorkingSets(userId),
     allEquipment(userId),
-    exercisesPerPattern(userId),
+    exercisesPerMuscle(userId),
   ])
   const day = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' })
 
@@ -58,7 +58,7 @@ export default async function ExercisesPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{e.name}</span>
                   <span className="block truncate text-xs opacity-45">
-                    {e.modelName} · {getPattern(e.patternCode)?.title ?? e.patternCode}
+                    {e.modelName} · {muscleTitle(e.muscleGroup)}
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-sm tabular-nums opacity-60">
@@ -72,7 +72,7 @@ export default async function ExercisesPage() {
               </summary>
 
               <form
-                key={`${e.name}-${e.patternCode}-${e.targetReps}`}
+                key={`${e.name}-${e.muscleGroup}-${e.targetReps}`}
                 action={updateExercise}
                 className="mt-3 flex flex-col gap-2"
               >
@@ -82,7 +82,7 @@ export default async function ExercisesPage() {
                   <span className="text-xs opacity-55">Название</span>
                   <input name="name" required defaultValue={e.name} className={field} />
                 </label>
-                <PatternSelect counts={counts} defaultValue={e.patternCode} className={field} />
+                <MuscleSelect counts={counts} defaultValue={e.muscleGroup} className={field} />
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Целевые повторы</span>
                   <input
@@ -160,7 +160,7 @@ export default async function ExercisesPage() {
                 ))}
               </select>
             </label>
-            <PatternSelect counts={counts} className={field} />
+            <MuscleSelect counts={counts} className={field} />
             <label className="flex flex-col gap-1">
               <span className="text-xs opacity-55">Целевые повторы</span>
               <input
@@ -174,8 +174,9 @@ export default async function ExercisesPage() {
               Создать
             </SubmitButton>
             <p className="text-xs opacity-40">
-              Движение определяет мышечную группу и то, какими упражнениями это можно заменить в
-              зале, где нужной железки нет.
+              Мышечная группа нужна для отката веса после перерыва и для счёта объёма по
+              тренировке. Замену занятому тренажёру приложение не подбирает: на одну группу
+              приходятся разные движения, и жим вместо сведения — не замена.
             </p>
           </form>
         )}

@@ -24,6 +24,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from 'next-auth/adapters'
+import { MUSCLE_CODES } from '../lib/muscles'
 
 /** Postgres bytea — превью фото тренажёра (WebP, длинная сторона <= 400px). */
 const bytea = customType<{ data: Buffer; default: false }>({
@@ -44,6 +45,12 @@ export const equipmentKind = pgEnum('equipment_kind', [
 ])
 
 export const weightUnits = pgEnum('weight_units', ['kg', 'lb'])
+
+/**
+ * Мышечная группа упражнения. Список и подписи — в src/lib/muscles.ts.
+ * Дописывать значения можно только в конец: порядок хранится в типе.
+ */
+export const muscleGroup = pgEnum('muscle_group', MUSCLE_CODES)
 
 export const sessionItemStatus = pgEnum('session_item_status', [
   'pending',
@@ -133,17 +140,6 @@ export const authVerificationTokens = pgTable(
   },
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 )
-
-/* ------------------------------------------------------------------ *
- * Справочник паттернов (сидится из src/lib/patterns.ts)
- * ------------------------------------------------------------------ */
-
-export const patterns = pgTable('pattern', {
-  code: text('code').primaryKey(),
-  title: text('title').notNull(),
-  muscleGroup: text('muscle_group').notNull(),
-  position: integer('position').notNull().default(0),
-})
 
 /* ------------------------------------------------------------------ *
  * Оборудование
@@ -310,9 +306,11 @@ export const exercises = pgTable(
       .references(() => authUsers.id, { onDelete: 'cascade' }),
     /** Как ты его называешь: «жим гантелей под наклоном 45°». */
     name: text('name').notNull(),
-    patternCode: text('pattern_code')
-      .notNull()
-      .references(() => patterns.code),
+    /**
+     * Какая мышца главная. Нужна для отката за паузу и для счёта объёма —
+     * заменой упражнений группа не занимается, для этого она слишком груба.
+     */
+    muscleGroup: muscleGroup('muscle_group').notNull(),
     equipmentModelId: uuid('equipment_model_id')
       .notNull()
       .references(() => equipmentModels.id, { onDelete: 'cascade' }),
@@ -327,7 +325,7 @@ export const exercises = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index('exercise_user_pattern_idx').on(t.userId, t.patternCode),
+    index('exercise_user_muscle_idx').on(t.userId, t.muscleGroup),
     index('exercise_model_idx').on(t.equipmentModelId),
   ],
 )
@@ -347,10 +345,11 @@ export const templates = pgTable('template', {
 })
 
 /**
- * Пункт шаблона написан в терминах паттерна, а не железки — иначе он
- * не переносится между залами. Список альтернатив не хранится: он
- * вычисляется как «всё оборудование текущего зала с тем же паттерном»
- * минус excludedModelIds.
+ * Пункт шаблона — это упражнение и то, как его делать: схема, число подходов.
+ *
+ * Упражнение названо прямо, а не выведено из группы: подстановка «чего-нибудь
+ * на грудь» вместо занятого тренажёра давала не замену, а другое упражнение.
+ * Если в зале занято — пункт убирается руками, на его место добавляется другой.
  */
 export const templateItems = pgTable(
   'template_item',
@@ -360,15 +359,9 @@ export const templateItems = pgTable(
       .notNull()
       .references(() => templates.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    patternCode: text('pattern_code')
+    exerciseId: uuid('exercise_id')
       .notNull()
-      .references(() => patterns.code),
-    /** Привычное упражнение — поднимается в списке наверх. */
-    preferredExerciseId: uuid('preferred_exercise_id').references(() => exercises.id, {
-      onDelete: 'set null',
-    }),
-    /** «Никогда не предлагай мне этот кроссовер». */
-    excludedExerciseIds: uuid('excluded_exercise_ids').array().notNull().default([]),
+      .references(() => exercises.id, { onDelete: 'cascade' }),
     scheme: setScheme('scheme').notNull().default('straight'),
     /** Сколько рабочих подходов. Для рампы длину задаёт rampPercents. */
     sets: integer('sets').notNull().default(3),
@@ -418,10 +411,7 @@ export const sessionItems = pgTable(
     templateItemId: uuid('template_item_id').references(() => templateItems.id, {
       onDelete: 'set null',
     }),
-    patternCode: text('pattern_code')
-      .notNull()
-      .references(() => patterns.code),
-    /** Выбранное упражнение; null, пока пользователь не выбрал. */
+    /** null остаётся возможным: упражнение могли удалить из каталога. */
     exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
     status: sessionItemStatus('status').notNull().default('pending'),
     targetSets: integer('target_sets').notNull(),

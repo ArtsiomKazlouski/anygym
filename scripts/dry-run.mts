@@ -9,7 +9,7 @@ import { db } from '../src/db/index.ts'
 import { authUsers, exercises, gyms, templateItems, templates } from '../src/db/schema.ts'
 import { rangeFromTarget } from '../src/lib/templates/parse.ts'
 import { buildItemPlan } from '../src/lib/session/plan.ts'
-import { patternTitles } from '../src/lib/session/queries.ts'
+import { muscleTitle } from '../src/lib/muscles.ts'
 
 const email = (process.env.ALLOWED_EMAILS ?? '').split(',')[0]?.trim()
 const [user] = await db.select().from(authUsers).where(eq(authUsers.email, email!))
@@ -20,22 +20,17 @@ const items = await db
   .from(templateItems)
   .where(eq(templateItems.templateId, tpl.id))
   .orderBy(templateItems.position)
-const titles = await patternTitles()
 
 console.log(`Зал: ${gym.name}   Тренировка: ${tpl.name}\n`)
 
 for (const it of items) {
-  const [ex] = await db
-    .select()
-    .from(exercises)
-    .where(eq(exercises.id, it.preferredExerciseId!))
+  const [ex] = await db.select().from(exercises).where(eq(exercises.id, it.exerciseId))
 
   const plan = await buildItemPlan({
     userId: user.id,
     gymId: gym.id,
     sessionId: '00000000-0000-0000-0000-000000000000',
     exerciseId: ex.id,
-    patternCode: it.patternCode,
     scheme: it.scheme,
     sets: it.sets,
     rampPercents: it.rampPercents,
@@ -47,7 +42,7 @@ for (const it of items) {
   const head = `${it.position + 1}. ${ex.name}`
   console.log(head)
   console.log(
-    `   ${titles.get(it.patternCode)?.title} · ${it.scheme === 'ramp' ? 'рампа' : 'прямая'}`,
+    `   ${muscleTitle(ex.muscleGroup)} · ${it.scheme === 'ramp' ? 'рампа' : 'прямая'}`,
   )
 
   if (!plan?.prescription.top) {

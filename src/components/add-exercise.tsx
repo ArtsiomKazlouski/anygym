@@ -1,5 +1,5 @@
 import { SubmitButton } from '@/components/submit-button'
-import { PatternSelect } from '@/components/pattern-select'
+import { MuscleSelect } from '@/components/muscle-select'
 import { addSessionItem, createExerciseAndAdd } from '@/lib/session/actions'
 
 type Exercise = { id: string; name: string; modelName: string }
@@ -10,7 +10,8 @@ type Equipment = { id: string; name: string }
  *
  * Шаблон — это пресет, а не обязательство: разгибания по одной ноге после
  * травмы делаются не всегда, заводить их в план на постоянной основе незачем,
- * но записывать нужно.
+ * но записывать нужно. Отсюда же и замена занятого тренажёра: пункт убирается,
+ * на его место добавляется другое упражнение.
  *
  * Свёрнуто по умолчанию: во время тренировки нужно редко, а место занимает.
  */
@@ -18,12 +19,12 @@ export function AddExercise({
   sessionId,
   exercises,
   equipment,
-  patternCounts,
+  muscleCounts,
 }: {
   sessionId: string
   exercises: Exercise[]
   equipment: Equipment[]
-  patternCounts: Map<string, number>
+  muscleCounts: Map<string, number>
 }) {
   const control =
     'w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-base dark:border-white/20'
@@ -73,7 +74,7 @@ export function AddExercise({
               </option>
             ))}
           </select>
-          <PatternSelect counts={patternCounts} className={control} />
+          <MuscleSelect counts={muscleCounts} className={control} />
           <input
             name="targetReps"
             inputMode="numeric"
@@ -84,9 +85,7 @@ export function AddExercise({
             Завести и добавить
           </SubmitButton>
           <p className="text-xs opacity-45">
-            Движение определяет мышечную группу — от неё работают разминка и подсказка «давно не
-            делал». Нового тренажёра тут не завести: ему нужны сетка весов и шаг, это отдельный
-            экран.
+            Нового тренажёра тут не завести: ему нужны сетка весов и шаг, это отдельный экран.
           </p>
         </form>
       </details>

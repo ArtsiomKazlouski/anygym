@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db'
 import { equipmentModels, equipmentSetups, exercises, gymEquipment, gyms } from '@/db/schema'
+import type { MuscleCode } from '@/lib/muscles'
 import { parseLadder } from './ladder'
 
 async function requireUser() {
@@ -298,13 +299,13 @@ export async function createExerciseOn(formData: FormData) {
   const userId = await requireUser()
   const equipmentModelId = str(formData, 'modelId')
   const name = str(formData, 'name')
-  const patternCode = str(formData, 'patternCode')
-  if (!name || !patternCode) throw new Error('Нужны название и движение')
+  const muscleGroup = str(formData, 'muscleGroup') as MuscleCode
+  if (!name || !muscleGroup) throw new Error('Нужны название и мышечная группа')
 
   await db.insert(exercises).values({
     userId,
     name,
-    patternCode,
+    muscleGroup,
     equipmentModelId,
     targetReps: Math.round(num(formData, 'targetReps') ?? 12),
   })
@@ -317,22 +318,23 @@ export async function updateExercise(formData: FormData) {
   const id = str(formData, 'exerciseId')
   const modelId = str(formData, 'modelId')
   const name = str(formData, 'name')
-  const patternCode = str(formData, 'patternCode')
+  const muscleGroup = str(formData, 'muscleGroup') as MuscleCode
   const targetReps = num(formData, 'targetReps')
 
-  if (!name || !patternCode) throw new Error('Нужны название и движение')
+  if (!name || !muscleGroup) throw new Error('Нужны название и мышечная группа')
   if (targetReps == null || targetReps < 1) throw new Error('Нужны целевые повторы')
 
   await db
     .update(exercises)
     .set({
       name,
-      patternCode,
+      muscleGroup,
       targetReps: Math.round(targetReps),
     })
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
   revalidatePath(`/equipment/${modelId}`)
   revalidatePath('/exercises')
+  revalidatePath('/templates')
 }
 
 export async function archiveExercise(formData: FormData) {

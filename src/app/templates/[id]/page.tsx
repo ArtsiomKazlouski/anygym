@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { SubmitButton } from '@/components/submit-button'
 import { TemplateItemForm } from '@/components/template-item-form'
-import { getPattern } from '@/lib/patterns'
 import {
   addTemplateItem,
   archiveTemplate,
@@ -15,6 +14,7 @@ import {
 import { lastWorkingSets } from '@/lib/equipment/queries'
 import { templateWithItems } from '@/lib/templates/queries'
 import { rampWeightsFromPercents } from '@/lib/templates/parse'
+import { MUSCLES, muscleTitle } from '@/lib/muscles'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -31,6 +31,16 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
     lastWorkingSets(userId),
   ])
   if (!data) redirect('/templates')
+
+  // Сколько рабочих подходов план даёт каждой мышце. Вопрос «не много ли
+  // бицепса и совсем ли нет спины» задаётся при планировании, а не постфактум,
+  // поэтому счёт стоит прямо здесь.
+  const perMuscle = new Map<string, number>()
+  for (const { item, muscleGroup } of data.items) {
+    const sets = item.scheme === 'ramp' ? 1 : item.sets
+    perMuscle.set(muscleGroup, (perMuscle.get(muscleGroup) ?? 0) + sets)
+  }
+  const volume = MUSCLES.filter((m) => perMuscle.has(m.code))
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 p-5">
@@ -49,15 +59,27 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         </SubmitButton>
       </form>
 
+      {volume.length > 0 && (
+        <p className="-mt-2 text-xs opacity-50">
+          Рабочих подходов:{' '}
+          {volume.map((m, i) => (
+            <span key={m.code}>
+              {i > 0 && ' · '}
+              {m.title} {perMuscle.get(m.code)}
+            </span>
+          ))}
+        </p>
+      )}
+
       <section className="flex flex-col gap-2">
         {data.items.length === 0 && (
           <p className="text-sm opacity-50">Пунктов пока нет — добавь первое упражнение.</p>
         )}
 
-        {data.items.map(({ item, exerciseName, targetReps }, index) => {
+        {data.items.map(({ item, exerciseName, muscleGroup, targetReps }, index) => {
           const summary =
             item.scheme === 'ramp'
-              ? `рампа ${rampWeightsFromPercents(item.rampPercents, lastSets.get(item.preferredExerciseId ?? '')?.weight) || '—'} · ${targetReps} повт`
+              ? `рампа ${rampWeightsFromPercents(item.rampPercents, lastSets.get(item.exerciseId)?.weight) || '—'} · ${targetReps} повт`
               : `${item.sets} подх. × ${targetReps}`
 
           return (
@@ -67,9 +89,11 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
             >
               <summary className="cursor-pointer">
                 <span className="text-sm font-medium">
-                  {index + 1}. {exerciseName ?? getPattern(item.patternCode)?.title}
+                  {index + 1}. {exerciseName}
                 </span>
-                <span className="ml-2 text-xs opacity-45">{summary}</span>
+                <span className="ml-2 text-xs opacity-45">
+                  {muscleTitle(muscleGroup)} · {summary}
+                </span>
               </summary>
 
               <div className="mt-2 flex gap-1">
@@ -96,7 +120,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
               <div className="mt-2">
                 <TemplateItemForm
                   key={JSON.stringify([
-                    item.preferredExerciseId,
+                    item.exerciseId,
                     item.scheme,
                     item.sets,
                     item.rampPercents,
@@ -105,7 +129,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}
-                  declaredKg={lastSets.get(item.preferredExerciseId ?? '')?.weight ?? null}
+                  declaredKg={lastSets.get(item.exerciseId)?.weight ?? null}
                   catalog={data.catalog}
                   submitLabel="Сохранить пункт"
                 />

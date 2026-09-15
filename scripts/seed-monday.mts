@@ -16,6 +16,7 @@ import {
   templateItems,
   templates,
 } from '../src/db/schema.ts'
+import type { MuscleCode } from '../src/lib/muscles.ts'
 
 const url = process.env.DATABASE_URL
 if (!url) throw new Error('DATABASE_URL не задан (нужен .env.local)')
@@ -39,7 +40,7 @@ type ModelSeed = typeof equipmentModels.$inferInsert
 type ExerciseSeed = {
   key: string
   name: string
-  pattern: string
+  muscle: MuscleCode
   model: string
   /** Целевые повторы — свойство упражнения, а не плана. */
   targetReps: number
@@ -92,14 +93,14 @@ const EXERCISES: ExerciseSeed[] = [
     key: 'bench',
     targetReps: 6,
     name: 'Жим лёжа',
-    pattern: 'horizontal_press',
+    muscle: 'chest',
     model: 'barbell',
   },
   {
     key: 'db45',
     targetReps: 12,
     name: 'Жим гантелей под наклоном 45°',
-    pattern: 'incline_press',
+    muscle: 'chest',
     model: 'dumbbells',
   },
   // 30° и альтернативы сведения — вес не назывался, заполнится с первой тренировки
@@ -107,14 +108,14 @@ const EXERCISES: ExerciseSeed[] = [
     key: 'db30',
     targetReps: 12,
     name: 'Жим гантелей под наклоном 30°',
-    pattern: 'incline_press',
+    muscle: 'chest',
     model: 'dumbbells',
   },
   {
     key: 'pec',
     targetReps: 12,
     name: 'Сведение в бабочке',
-    pattern: 'chest_fly',
+    muscle: 'chest',
     model: 'pec_deck',
     notes: 'Вес не помнит: называл 30-70',
   },
@@ -122,49 +123,48 @@ const EXERCISES: ExerciseSeed[] = [
     key: 'cross',
     targetReps: 12,
     name: 'Сведение на кроссовере',
-    pattern: 'chest_fly',
+    muscle: 'chest',
     model: 'cable',
   },
   {
     key: 'db_fly',
     targetReps: 12,
     name: 'Разводка гантелями лёжа',
-    pattern: 'chest_fly',
+    muscle: 'chest',
     model: 'dumbbells',
   },
   {
     key: 'curl_seated',
     targetReps: 15,
     name: 'Бицепс гантелями сидя',
-    pattern: 'biceps_curl',
+    muscle: 'biceps',
     model: 'dumbbells',
   },
   {
     key: 'curl_ez',
     targetReps: 15,
     name: 'Бицепс с EZ-грифом стоя',
-    pattern: 'biceps_curl',
+    muscle: 'biceps',
     model: 'ez',
   },
   {
     key: 'hammer',
     targetReps: 15,
     name: 'Молоточки',
-    pattern: 'biceps_curl',
+    muscle: 'biceps',
     model: 'dumbbells',
   },
   {
     key: 'abs',
     targetReps: 15,
     name: 'Пресс в тренажёре',
-    pattern: 'trunk_flexion',
+    muscle: 'core',
     model: 'ab',
   },
 ]
 
 type ItemSeed = {
-  pattern: string
-  preferred: string
+  exercise: string
   scheme: 'straight' | 'ramp'
   sets?: number
   rampPercents?: number[]
@@ -173,51 +173,43 @@ type ItemSeed = {
 
 const ITEMS: ItemSeed[] = [
   {
-    pattern: 'horizontal_press',
-    preferred: 'bench',
+    exercise: 'bench',
     scheme: 'ramp',
     rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
     note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
   },
   {
-    pattern: 'incline_press',
-    preferred: 'db45',
+    exercise: 'db45',
     scheme: 'ramp',
     rampPercents: [0.6, 0.72, 0.89, 1],
   },
   {
-    pattern: 'incline_press',
-    preferred: 'db30',
+    exercise: 'db30',
     scheme: 'straight',
     sets: 2,
   },
   {
-    pattern: 'chest_fly',
-    preferred: 'pec',
+    exercise: 'pec',
     scheme: 'straight',
     sets: 4,
   },
   {
-    pattern: 'biceps_curl',
-    preferred: 'curl_seated',
+    exercise: 'curl_seated',
     scheme: 'straight',
     sets: 4,
   },
   {
-    pattern: 'biceps_curl',
-    preferred: 'curl_ez',
+    exercise: 'curl_ez',
     scheme: 'straight',
     sets: 4,
   },
   {
-    pattern: 'biceps_curl',
-    preferred: 'hammer',
+    exercise: 'hammer',
     scheme: 'straight',
     sets: 3,
   },
   {
-    pattern: 'trunk_flexion',
-    preferred: 'abs',
+    exercise: 'abs',
     scheme: 'ramp',
     rampPercents: [0.6, 0.8, 1],
   },
@@ -294,7 +286,7 @@ for (const e of EXERCISES) {
         .values({
           userId,
           name: e.name,
-          patternCode: e.pattern,
+          muscleGroup: e.muscle,
           equipmentModelId: modelIds.get(e.model)!,
           targetReps: e.targetReps,
           notes: e.notes,
@@ -316,8 +308,7 @@ if (!existingTemplate) {
     ITEMS.map((it, i) => ({
       templateId: tpl.id,
       position: i,
-      patternCode: it.pattern,
-      preferredExerciseId: exerciseIds.get(it.preferred)!,
+      exerciseId: exerciseIds.get(it.exercise)!,
       scheme: it.scheme,
       sets: it.sets ?? 3,
       rampPercents: it.rampPercents,

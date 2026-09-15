@@ -112,8 +112,7 @@ export async function addTemplateItem(formData: FormData) {
   await db.insert(templateItems).values({
     templateId,
     position: max + 1,
-    patternCode: exercise.patternCode,
-    preferredExerciseId: exercise.id,
+    exerciseId: exercise.id,
     ...itemFieldsFrom(formData),
   })
   revalidatePath(`/templates/${templateId}`)
@@ -127,14 +126,13 @@ export async function updateTemplateItem(formData: FormData) {
   const exerciseId = str(formData, 'exerciseId')
   const patch: Record<string, unknown> = itemFieldsFrom(formData)
 
-  if (exerciseId && exerciseId !== item.preferredExerciseId) {
+  if (exerciseId && exerciseId !== item.exerciseId) {
     const [exercise] = await db
       .select()
       .from(exercises)
       .where(and(eq(exercises.id, exerciseId), eq(exercises.userId, userId)))
     if (!exercise) throw new Error('Упражнение не найдено')
-    patch.preferredExerciseId = exercise.id
-    patch.patternCode = exercise.patternCode
+    patch.exerciseId = exercise.id
   }
 
   await db.update(templateItems).set(patch).where(eq(templateItems.id, itemId))

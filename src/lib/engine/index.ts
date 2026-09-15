@@ -24,7 +24,6 @@ export type {
 export {
   DELOAD_TABLE,
   PAIN_BACKOFF_FACTOR,
-  PROBE_FACTOR,
   RESET_AFTER_DAYS,
   RE_ANCHOR_MIN_PERCENT,
   baseFromLastSession,

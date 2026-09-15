@@ -15,6 +15,7 @@ import {
   workoutSessions,
 } from '@/db/schema'
 import { toKg } from '@/lib/engine'
+import type { MuscleCode } from '@/lib/muscles'
 import { rangeFromTarget } from '@/lib/templates/parse'
 import { resolveGrid } from './grid'
 
@@ -54,7 +55,7 @@ export async function startSession(formData: FormData) {
     const items = await db
       .select({ item: templateItems, targetReps: exercises.targetReps })
       .from(templateItems)
-      .leftJoin(exercises, eq(exercises.id, templateItems.preferredExerciseId))
+      .innerJoin(exercises, eq(exercises.id, templateItems.exerciseId))
       .where(eq(templateItems.templateId, templateId))
       .orderBy(templateItems.position)
 
@@ -64,8 +65,7 @@ export async function startSession(formData: FormData) {
           sessionId: session.id,
           position: item.position,
           templateItemId: item.id,
-          patternCode: item.patternCode,
-          exerciseId: item.preferredExerciseId,
+          exerciseId: item.exerciseId,
           targetSets: item.sets,
           ...rangeFromTarget(targetReps ?? DEFAULT_TARGET_REPS),
         })),
@@ -74,31 +74,6 @@ export async function startSession(formData: FormData) {
   }
 
   redirect(`/session/${session.id}`)
-}
-
-export async function pickExercise(formData: FormData) {
-  const userId = await requireUser()
-  const itemId = String(formData.get('itemId') ?? '')
-  const exerciseId = String(formData.get('exerciseId') ?? '')
-  const { item } = await ownedItem(userId, itemId)
-
-  // Упражнение выбирается до первого подхода. Дальше смена означала бы, что
-  // подходы, записанные на одну железку, приписаны другой. Чтобы передумать,
-  // надо удалить записанное — тогда замок снимется сам.
-  const [{ n }] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(setLogs)
-    .where(eq(setLogs.sessionItemId, item.id))
-  if (n > 0) {
-    throw new Error('Подходы уже записаны — удали их, если нужно сменить упражнение')
-  }
-
-  await db
-    .update(sessionItems)
-    .set({ exerciseId, status: 'active' })
-    .where(eq(sessionItems.id, item.id))
-
-  revalidatePath(`/session/${item.sessionId}`)
 }
 
 export async function logSet(formData: FormData) {
@@ -211,7 +186,6 @@ export async function addSessionItem(formData: FormData) {
   await db.insert(sessionItems).values({
     sessionId,
     position: max + 1,
-    patternCode: exercise.patternCode,
     exerciseId: exercise.id,
     targetSets: DEFAULT_SETS,
     ...rangeFromTarget(exercise.targetReps ?? DEFAULT_TARGET_REPS),
@@ -230,11 +204,13 @@ export async function createExerciseAndAdd(formData: FormData) {
   const userId = await requireUser()
   const sessionId = String(formData.get('sessionId') ?? '')
   const name = String(formData.get('name') ?? '').trim()
-  const patternCode = String(formData.get('patternCode') ?? '')
+  const muscleGroup = String(formData.get('muscleGroup') ?? '') as MuscleCode
   const equipmentModelId = String(formData.get('equipmentModelId') ?? '')
 
   if (!name) throw new Error('Нужно название упражнения')
-  if (!patternCode || !equipmentModelId) throw new Error('Не выбраны движение или тренажёр')
+  if (!muscleGroup || !equipmentModelId) {
+    throw new Error('Не выбраны мышечная группа или тренажёр')
+  }
 
   const targetReps = Number(String(formData.get('targetReps') ?? '').trim())
   const [exercise] = await db
@@ -242,7 +218,7 @@ export async function createExerciseAndAdd(formData: FormData) {
     .values({
       userId,
       name,
-      patternCode,
+      muscleGroup,
       equipmentModelId,
       targetReps: Number.isFinite(targetReps) && targetReps > 0 ? Math.round(targetReps) : 12,
     })
@@ -257,7 +233,11 @@ export async function createExerciseAndAdd(formData: FormData) {
 /**
  * Убирает пункт из тренировки насовсем.
  *
- * Только пока по нему ничего не записано: у начатого упражнения есть подходы,
+ * Это же и замена занятого тренажёра: убрать пункт, добавить другое упражнение.
+ * Подставлять замену самому приложение не берётся — на одну мышечную группу
+ * приходятся разные движения, и жим вместо сведения это не замена.
+ *
+ * Только пока по пункту ничего не записано: у начатого упражнения есть подходы,
  * и удаление молча стёрло бы их. Для такого случая есть «Пропустить» — оно
  * сохраняет факт, что упражнение планировалось и не было сделано.
  */

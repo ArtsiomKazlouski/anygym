@@ -12,9 +12,9 @@ import {
   updateEquipment,
   updateExercise,
 } from '@/lib/equipment/actions'
-import { equipmentCard, exercisesPerPattern } from '@/lib/equipment/queries'
-import { PatternSelect } from '@/components/pattern-select'
-import { getPattern } from '@/lib/patterns'
+import { equipmentCard, exercisesPerMuscle } from '@/lib/equipment/queries'
+import { MuscleSelect } from '@/components/muscle-select'
+import { muscleTitle } from '@/lib/muscles'
 
 const SETUP_FIELDS = ['сиденье', 'спинка', 'хват', 'упор'] as const
 const field =
@@ -28,7 +28,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
 
   const [data, counts] = await Promise.all([
     equipmentCard(userId, id),
-    exercisesPerPattern(userId),
+    exercisesPerMuscle(userId),
   ])
   if (!data) redirect('/gyms')
 
@@ -119,12 +119,12 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
               <summary className="cursor-pointer">
                 <span className="text-sm">{e.name}</span>
                 <span className="ml-2 text-xs opacity-40">
-                  {getPattern(e.patternCode)?.title ?? e.patternCode} · {e.targetReps} повт
+                  {muscleTitle(e.muscleGroup)} · {e.targetReps} повт
                 </span>
               </summary>
 
               <form
-                key={`${e.name}-${e.patternCode}-${e.targetReps}`}
+                key={`${e.name}-${e.muscleGroup}-${e.targetReps}`}
                 action={updateExercise}
                 className="mt-2 flex flex-col gap-2"
               >
@@ -134,7 +134,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                   <span className="text-xs opacity-55">Название</span>
                   <input name="name" required defaultValue={e.name} className={field} />
                 </label>
-                <PatternSelect counts={counts} defaultValue={e.patternCode} className={field} />
+                <MuscleSelect counts={counts} defaultValue={e.muscleGroup} className={field} />
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Целевые повторы</span>
                   <input
@@ -165,7 +165,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
           <form action={createExerciseOn} className="mt-3 flex flex-col gap-2">
             <input type="hidden" name="modelId" value={data.model.id} />
             <input name="name" required placeholder="Название" className={field} />
-            <PatternSelect counts={counts} className={field} />
+            <MuscleSelect counts={counts} className={field} />
             <input
               name="targetReps"
               inputMode="numeric"

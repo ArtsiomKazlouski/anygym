@@ -13,7 +13,7 @@ import {
 } from '@/lib/engine'
 import { MODEL_COLUMNS, photoUrl } from '@/lib/equipment/columns'
 import { resolveGrid } from './grid'
-import { daysSincePattern, lastSessionSets, painRecent, probeBaseKg, setupFor } from './queries'
+import { daysSinceMuscle, lastSessionSets, painRecent, setupFor } from './queries'
 
 type LoggedRow = typeof setLogs.$inferSelect
 
@@ -52,7 +52,6 @@ export async function buildItemPlan(args: {
   gymId: string
   sessionId: string
   exerciseId: string
-  patternCode: string
   scheme: 'straight' | 'ramp'
   sets: number
   rampPercents: number[] | null
@@ -80,11 +79,10 @@ export async function buildItemPlan(args: {
 
   const grid = resolveGrid(exercise.model, instance)
 
-  const [last, days, pain, probe, setup] = await Promise.all([
+  const [last, days, pain, setup] = await Promise.all([
     lastSessionSets(args.userId, args.exerciseId, args.sessionId),
-    daysSincePattern(args.userId, args.patternCode),
+    daysSinceMuscle(args.userId, exercise.ex.muscleGroup),
     painRecent(args.userId, args.exerciseId),
-    probeBaseKg(args.userId, args.patternCode, args.exerciseId),
     setupFor(args.userId, exercise.model.id, instance?.id),
   ])
 
@@ -102,13 +100,12 @@ export async function buildItemPlan(args: {
     extraSets: args.extraSets,
     rampPercents: args.rampPercents ?? undefined,
     lastSessionSets: last.sets,
-    daysSincePattern: days,
+    daysSinceMuscle: days,
     painRecent: pain,
-    probeBaseKg: probe,
   })
 
   const notes = [...prescription.notes]
-  if (historyDay && prescription.source !== 'probe' && prescription.source !== 'manual') {
+  if (historyDay && prescription.source !== 'manual') {
     notes.push(`Считаю от записи ${historyDay}`)
   }
   const base = {

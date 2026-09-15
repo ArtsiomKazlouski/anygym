@@ -4,16 +4,10 @@ import { AddExercise } from '@/components/add-exercise'
 import { DeleteSession } from '@/components/delete-session'
 import { ItemCard } from '@/components/item-card'
 import { SessionHeader } from '@/components/session-header'
-import { exercisesPerPattern } from '@/lib/equipment/queries'
-import {
-  alternativesFor,
-  equipmentInGym,
-  exercisesInGym,
-  historyVolume,
-  patternTitles,
-  sessionWithItems,
-} from '@/lib/session/queries'
+import { exercisesPerMuscle } from '@/lib/equipment/queries'
+import { equipmentInGym, exercisesInGym, sessionWithItems } from '@/lib/session/queries'
 import { buildItemPlan } from '@/lib/session/plan'
+import { muscleTitle } from '@/lib/muscles'
 
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -24,11 +18,10 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const data = await sessionWithItems(userId, id)
   if (!data) redirect('/')
 
-  const [patterns, addable, equipment, patternCounts] = await Promise.all([
-    patternTitles(),
+  const [addable, equipment, muscleCounts] = await Promise.all([
     exercisesInGym(userId, data.session.gymId),
     equipmentInGym(userId, data.session.gymId),
-    exercisesPerPattern(userId),
+    exercisesPerMuscle(userId),
   ])
   // Порядок строго по плану: пункт не должен прыгать по списку от смены статуса.
   // «Занято» и так уводит его в конец, меняя позицию.
@@ -43,25 +36,6 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     sorted.map(async (row) => {
       const logged = data.logsByItem.get(row.item.id) ?? []
       const isCurrent = row.item.id === currentId
-      // Упражнение, у которого есть свой пункт в этой тренировке, не предлагается
-      // как замена другому: жим под 30° — это отдельный пункт, а не альтернатива 45°.
-      const plannedElsewhere = data.items
-        .filter((r) => r.item.id !== row.item.id)
-        .flatMap((r) => [r.item.exerciseId, r.templateItem?.preferredExerciseId])
-        .filter((id): id is string => Boolean(id))
-
-      const alternatives = isCurrent
-        ? await alternativesFor(userId, data.session.gymId, row.item.patternCode, [
-            ...plannedElsewhere,
-            ...(row.templateItem?.excludedExerciseIds ?? []),
-          ])
-        : []
-      const volume = isCurrent
-        ? await historyVolume(
-            userId,
-            alternatives.map((a) => a.id),
-          )
-        : new Map()
 
       const plan =
         isCurrent && row.item.exerciseId
@@ -70,7 +44,6 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               gymId: data.session.gymId,
               sessionId: data.session.id,
               exerciseId: row.item.exerciseId,
-              patternCode: row.item.patternCode,
               scheme: row.templateItem?.scheme ?? 'straight',
               sets: row.item.targetSets,
               rampPercents: row.templateItem?.rampPercents ?? null,
@@ -86,15 +59,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         logged,
         isCurrent,
         plan,
-        alternatives: alternatives
-          .map((a) => ({ ...a, volume: volume.get(a.id) ?? 0 }))
-          .sort((a, b) => {
-            const pref = row.templateItem?.preferredExerciseId
-            if (a.id === pref) return -1
-            if (b.id === pref) return 1
-            return b.volume - a.volume
-          }),
-        patternTitle: patterns.get(row.item.patternCode)?.title ?? row.item.patternCode,
+        muscleTitle: row.exercise ? muscleTitle(row.exercise.muscleGroup) : '',
       }
     }),
   )
@@ -110,7 +75,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         sessionId={data.session.id}
         exercises={addable}
         equipment={equipment}
-        patternCounts={patternCounts}
+        muscleCounts={muscleCounts}
       />
 
       <DeleteSession

@@ -27,10 +27,11 @@ export async function templateWithItems(userId: string, templateId: string) {
     .select({
       item: templateItems,
       exerciseName: exercises.name,
+      muscleGroup: exercises.muscleGroup,
       targetReps: exercises.targetReps,
     })
     .from(templateItems)
-    .leftJoin(exercises, eq(exercises.id, templateItems.preferredExerciseId))
+    .innerJoin(exercises, eq(exercises.id, templateItems.exerciseId))
     .where(eq(templateItems.templateId, templateId))
     .orderBy(templateItems.position)
 
@@ -38,7 +39,7 @@ export async function templateWithItems(userId: string, templateId: string) {
     .select({
       id: exercises.id,
       name: exercises.name,
-      patternCode: exercises.patternCode,
+      muscleGroup: exercises.muscleGroup,
       targetReps: exercises.targetReps,
       modelName: equipmentModels.name,
     })

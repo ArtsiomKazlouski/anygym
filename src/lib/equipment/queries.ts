@@ -80,18 +80,18 @@ export async function lastWorkingSets(userId: string) {
 }
 
 /**
- * Сколько упражнений уже в каждой группе взаимозаменяемых.
+ * Сколько упражнений заведено на каждую мышечную группу.
  *
- * Показывается прямо в выборе: без этого поле читается как пересказ названия
- * упражнения, а не как «вот с чем оно встанет в один ряд».
+ * Показывается прямо в выборе: так видно перекос каталога — четыре упражнения
+ * на бицепс и ни одного на спину — в тот момент, когда его можно исправить.
  */
-export async function exercisesPerPattern(userId: string) {
+export async function exercisesPerMuscle(userId: string) {
   const rows = await db
-    .select({ patternCode: exercises.patternCode, n: sql<number>`count(*)::int` })
+    .select({ muscleGroup: exercises.muscleGroup, n: sql<number>`count(*)::int` })
     .from(exercises)
     .where(and(eq(exercises.userId, userId), eq(exercises.isActive, true)))
-    .groupBy(exercises.patternCode)
-  return new Map(rows.map((r) => [r.patternCode, r.n]))
+    .groupBy(exercises.muscleGroup)
+  return new Map(rows.map((r) => [r.muscleGroup as string, r.n]))
 }
 
 /** Всё оборудование пользователя — для выбора при заведении упражнения. */
@@ -113,7 +113,7 @@ export async function allExercises(userId: string) {
     .select({
       id: exercises.id,
       name: exercises.name,
-      patternCode: exercises.patternCode,
+      muscleGroup: exercises.muscleGroup,
       targetReps: exercises.targetReps,
       modelId: equipmentModels.id,
       modelName: equipmentModels.name,
@@ -183,7 +183,7 @@ export async function equipmentCard(userId: string, modelId: string) {
       .select({
         id: exercises.id,
         name: exercises.name,
-        patternCode: exercises.patternCode,
+        muscleGroup: exercises.muscleGroup,
         targetReps: exercises.targetReps,
       })
       .from(exercises)

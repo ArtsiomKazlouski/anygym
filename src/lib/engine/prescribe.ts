@@ -9,6 +9,11 @@ import { type SnappedWeight, type WeightGrid, rampGrid, snapKg, stepKg } from '.
 
 export type SetFeedback = 'easy' | 'on_target' | 'limit' | 'failed'
 
+/**
+ * 'declared' и 'probe' больше не выдаются: заявленный вес убран, а разведка
+ * от соседнего упражнения не пережила отказ от паттернов. Значения оставлены —
+ * на них ссылаются старые записи подходов.
+ */
 export type PrescriptionSource =
   'history' | 'declared' | 'probe' | 'manual' | 'deload' | 'pain_backoff'
 
@@ -30,11 +35,10 @@ export type LoggedSet = {
 }
 
 /** Коэффициенты вынесены сюда, чтобы калибровать их по накопленным данным. */
-export const PROBE_FACTOR = 0.6
 export const PAIN_BACKOFF_FACTOR = 0.9
 export const RESET_AFTER_DAYS = 90
 
-/** Откат за паузу: дни без работы на ПАТТЕРН -> множитель. */
+/** Откат за паузу: дни без работы на МЫШЕЧНУЮ ГРУППУ -> множитель. */
 export const DELOAD_TABLE: readonly { upToDays: number; factor: number }[] = [
   { upToDays: 10, factor: 1.0 },
   { upToDays: 21, factor: 0.95 },
@@ -57,15 +61,13 @@ export type PrescribeContext = {
   /** Рабочие подходы последней сессии на ЭТОЙ МОДЕЛИ. Подводящие и разминку не передавать. */
   lastSessionSets: LoggedSet[]
   /**
-   * Дней с последней работы на ЭТОТ ПАТТЕРН, включая текущую сессию.
+   * Дней с последней работы на ЭТУ МЫШЕЧНУЮ ГРУППУ, включая текущую сессию.
    * Второе упражнение на ту же группу в один день даёт 0 и отката не получает.
-   * null — паттерн не делался никогда.
+   * null — группа не тренировалась никогда.
    */
-  daysSincePattern: number | null
+  daysSinceMuscle: number | null
   /** Была ли отмечена боль на этой модели в последних двух сессиях. */
   painRecent: boolean
-  /** Рабочий вес на другом упражнении того же паттерна — база для разведки. */
-  probeBaseKg?: number | null
 }
 
 export type SetPlan = {
@@ -219,7 +221,7 @@ export function prescribe(ctx: PrescribeContext): Prescription {
   const { grid, repMax } = ctx
   const notes: string[] = []
 
-  const { factor: pauseFactor, reset } = deloadFactor(ctx.daysSincePattern)
+  const { factor: pauseFactor, reset } = deloadFactor(ctx.daysSinceMuscle)
   const historyBase = reset ? null : baseFromLastSession(ctx.lastSessionSets)
 
   let source: PrescriptionSource
@@ -238,22 +240,24 @@ export function prescribe(ctx: PrescribeContext): Prescription {
       topKg = historyBase
       notes.push('Вес держим, растём в повторах')
     }
-  } else if (ctx.probeBaseKg != null) {
-    source = 'probe'
-    topKg = ctx.probeBaseKg * PROBE_FACTOR
-    notes.push(
-      reset
-        ? `Перерыв больше ${RESET_AFTER_DAYS} дней — тренажёр считаем незнакомым, это разведка`
-        : 'Незнакомый тренажёр — это разведочный подход, не рабочий',
-    )
   } else {
+    // Веса нет — и угадывать его не от чего.
+    //
+    // Раньше он брался от соседнего упражнения того же паттерна с коэффициентом.
+    // По мышечной группе так делать нельзя: жим и сведение — одна грудь, но
+    // сотня в жиме не означает сотню в разводке. Ошибиться здесь вверх
+    // означает подсунуть травмоопасный вес на незнакомой железке.
     return {
       scheme: ctx.scheme,
       top: null,
       sets: [],
       source: 'manual',
       preDeloadKg: null,
-      notes: ['Истории по этому движению нет — поставь вес сам, дальше подхвачу'],
+      notes: [
+        reset
+          ? `Перерыв больше ${RESET_AFTER_DAYS} дней — начинаем заново, поставь вес сам`
+          : 'Истории по этому упражнению нет — поставь вес сам, дальше подхвачу',
+      ],
     }
   }
 
@@ -264,7 +268,7 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     topKg = topKg * pauseFactor
     source = 'deload'
     notes.push(
-      `Перерыв ${ctx.daysSincePattern} дн. — минус ${Math.round((1 - pauseFactor) * 100)}% на верхний подход`,
+      `Перерыв ${ctx.daysSinceMuscle} дн. — минус ${Math.round((1 - pauseFactor) * 100)}% на верхний подход`,
     )
   }
 
@@ -272,7 +276,7 @@ export function prescribe(ctx: PrescribeContext): Prescription {
     if (preDeloadKg == null) preDeloadKg = topKg
     topKg = topKg * PAIN_BACKOFF_FACTOR
     source = 'pain_backoff'
-    notes.push('В прошлый раз на этом движении была боль — рост заморожен, вес снижен')
+    notes.push('В прошлый раз на этом упражнении была боль — рост заморожен, вес снижен')
   }
 
   // Рост идёт вверх по сетке, откаты — к ближайшей ступени.

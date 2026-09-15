@@ -40,7 +40,7 @@ export function TemplateItemForm({
       <select
         name="exerciseId"
         required
-        defaultValue={item?.preferredExerciseId ?? ''}
+        defaultValue={item?.exerciseId ?? ''}
         className={field}
       >
         <option value="" disabled>

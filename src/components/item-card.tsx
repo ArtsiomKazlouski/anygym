@@ -10,18 +10,10 @@ import {
   finishItem,
   focusItem,
   logSet,
-  pickExercise,
   removeSessionItem,
 } from '@/lib/session/actions'
 
 type Logged = typeof setLogs.$inferSelect
-
-type Alternative = {
-  id: string
-  name: string
-  notes: string | null
-  volume: number
-}
 
 type Props = {
   row: {
@@ -41,8 +33,8 @@ type Props = {
   logged: Logged[]
   isCurrent: boolean
   plan: ItemPlan | null
-  alternatives: Alternative[]
-  patternTitle: string
+  /** Мышечная группа упражнения — подпись над названием. */
+  muscleTitle: string
 }
 
 const ROLE_LABEL = {
@@ -91,9 +83,9 @@ const FEEDBACK_RAMP = [
   { value: 'limit', label: 'Тяжелее, чем ждал', hint: 'верх срежем' },
 ] as const
 
-export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTitle }: Props) {
+export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
   const { item, exercise } = row
-  const title = exercise?.name ?? patternTitle
+  const title = exercise?.name ?? 'Упражнение удалено'
   const muted = item.status === 'done' || item.status === 'skipped'
 
   if (!isCurrent) {
@@ -146,7 +138,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
     <section className="rounded-2xl border-2 border-black/80 px-4 py-4 dark:border-white/80">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide opacity-40">{patternTitle}</div>
+          <div className="text-xs uppercase tracking-wide opacity-40">{muscleTitle}</div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -171,32 +163,6 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
 
       {row.templateItem?.note && (
         <p className="mt-2 text-xs opacity-50">{row.templateItem.note}</p>
-      )}
-
-      {alternatives.length > 1 && logged.length === 0 && (
-        <form action={pickExercise} className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          <input type="hidden" name="itemId" value={item.id} />
-          {alternatives.map((a) => {
-            const chosen = a.id === item.exerciseId
-            return (
-              <SubmitButton
-                key={a.id}
-                name="exerciseId"
-                value={a.id}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
-                  chosen
-                    ? 'bg-black text-white dark:bg-white dark:text-black'
-                    : 'border border-black/15 dark:border-white/20'
-                }`}
-              >
-                {a.name}
-                <span className="ml-1 opacity-50">
-                  {a.volume > 0 ? `· ${a.volume}` : '· нет данных'}
-                </span>
-              </SubmitButton>
-            )
-          })}
-        </form>
       )}
 
       {plan && plan.planned.length > 0 && (
@@ -319,7 +285,7 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         <div className="mt-4 flex flex-col gap-3">
           <p className="text-sm opacity-60">
             {!item.exerciseId
-              ? 'Выбери, на чём делаешь.'
+              ? 'Упражнение удалено из каталога — записывать некуда.'
               : logged.length > 0
                 ? `Все подходы записаны — ${logged.length} из ${item.targetSets}.`
                 : 'Подходов в плане нет.'}
