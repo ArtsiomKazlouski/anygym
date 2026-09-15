@@ -14,6 +14,7 @@ import {
 import { lastWorkingSets } from '@/lib/equipment/queries'
 import { templateWithItems } from '@/lib/templates/queries'
 import { MUSCLES, muscleTitle } from '@/lib/muscles'
+import { leadWeights } from '@/lib/templates/parse'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -76,9 +77,12 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
         )}
 
         {data.items.map(({ item, exerciseName, muscleGroup, targetReps }, index) => {
-          const lead = item.rampPercents?.length ?? 0
+          // Вес подводки, а не только её длина: «подводка 2» не отвечает
+          // на вопрос, который к плану задают, — что вешать.
+          const lead = leadWeights(item.rampPercents, lastSets.get(item.exerciseId)?.weight)
           const summary =
-            (lead > 0 ? `подводка ${lead} · ` : '') + `${item.sets} подх. × ${targetReps}`
+            (lead.length > 0 ? `подводка ${lead.join(', ')} · ` : '') +
+            `${item.sets} подх. × ${targetReps}`
 
           return (
             <details

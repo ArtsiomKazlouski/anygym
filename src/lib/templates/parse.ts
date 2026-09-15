@@ -54,19 +54,35 @@ export function rampPercentsFromWeights(input: string): {
   }
 }
 
+const round = (w: number) => Math.round(w * 10) / 10
+
 /**
- * Доли обратно в килограммы — чтобы показать при редактировании.
- * Рабочий вес дописывается последним: в поле человек видит ту же строку,
- * которую туда вводил.
+ * Доли обратно в килограммы — ступени подводки без рабочего веса.
+ *
+ * Число приблизительное: точный вес зависит от сетки конкретной железки,
+ * а план не привязан к залу. В зале движок положит ступени на реальные
+ * ступени сетки.
+ */
+export function leadWeights(
+  percents: number[] | null | undefined,
+  topKg: number | null | undefined,
+): number[] {
+  if (!percents || percents.length === 0) return []
+  const top = topKg && topKg > 0 ? topKg : 100
+  return percents.map((p) => round(p * top))
+}
+
+/**
+ * То же самое строкой для поля ввода: рабочий вес дописывается последним,
+ * чтобы человек видел ту же строку, которую туда вводил.
  */
 export function rampWeightsFromPercents(
   percents: number[] | null | undefined,
   topKg: number | null | undefined,
 ): string {
-  if (!percents || percents.length === 0) return ''
-  const top = topKg && topKg > 0 ? topKg : 100
-  const round = (w: number) => Math.round(w * 10) / 10
-  return [...percents.map((p) => round(p * top)), round(top)].join(', ')
+  const lead = leadWeights(percents, topKg)
+  if (lead.length === 0) return ''
+  return [...lead, round(topKg && topKg > 0 ? topKg : 100)].join(', ')
 }
 
 /**
