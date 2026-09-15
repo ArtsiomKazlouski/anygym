@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { setLogs } from '@/db/schema'
 import { gridOptions } from '@/lib/engine'
 import type { ItemPlan } from '@/lib/session/plan'
@@ -7,11 +8,10 @@ import {
   deferItem,
   deleteSet,
   finishItem,
+  focusItem,
   logSet,
   pickExercise,
   removeSessionItem,
-  resumeItem,
-  skipItem,
 } from '@/lib/session/actions'
 
 type Logged = typeof setLogs.$inferSelect
@@ -102,32 +102,31 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
         className={`rounded-2xl border border-black/10 px-4 py-3 dark:border-white/15 ${muted ? 'opacity-45' : ''}`}
       >
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{title}</div>
-            <div className="text-xs opacity-50">
-              {item.status === 'done' && `сделано, подходов ${logged.length}`}
-              {item.status === 'skipped' && 'пропущено'}
-              {item.status === 'deferred' &&
-                `занято${logged.length ? `, подходов ${logged.length}` : ''}`}
-              {item.status === 'pending' &&
-                (row.templateItem?.scheme === 'ramp'
-                  ? `рампа · ${item.repMax} повт`
-                  : `${item.targetSets} подх. × ${item.repMax}`)}
-            </div>
-          </div>
+          {/* Вся строка — переход к упражнению: порядок в зале не совпадает
+              с планом, и к любому пункту нужно уметь перейти тапом. */}
+          <form action={focusItem} className="min-w-0 flex-1">
+            <input type="hidden" name="itemId" value={item.id} />
+            <SubmitButton className="w-full text-left">
+              <span className="block truncate text-sm font-medium">{title}</span>
+              <span className="block text-xs opacity-50">
+                {item.status === 'done' && `сделано, подходов ${logged.length}`}
+                {item.status === 'skipped' && 'пропущено'}
+                {item.status === 'deferred' &&
+                  `занято${logged.length ? `, подходов ${logged.length}` : ''}`}
+                {(item.status === 'pending' || item.status === 'active') &&
+                  (logged.length > 0
+                    ? `начато, подходов ${logged.length}`
+                    : row.templateItem?.scheme === 'ramp'
+                      ? `рампа · ${item.repMax} повт`
+                      : `${item.targetSets} подх. × ${item.repMax}`)}
+              </span>
+            </SubmitButton>
+          </form>
           <div className="flex shrink-0 gap-2">
-            {item.status === 'deferred' && (
-              <form action={resumeItem}>
-                <input type="hidden" name="itemId" value={item.id} />
-                <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
-                  Вернуться
-                </SubmitButton>
-              </form>
-            )}
             {/*
               Убрать можно только пока ничего не записано: у начатого
               упражнения есть подходы, и удаление молча стёрло бы их.
-              Для такого случая есть «Пропустить».
+              Незаконченные пункты закроются сами при завершении тренировки.
             */}
             {logged.length === 0 && item.status !== 'done' && (
               <form action={removeSessionItem}>
@@ -150,17 +149,21 @@ export function ItemCard({ row, logged, isCurrent, plan, alternatives, patternTi
           <div className="text-xs uppercase tracking-wide opacity-40">{patternTitle}</div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {plan?.modelId && (
+            <Link
+              href={`/equipment/${plan.modelId}`}
+              aria-label="Памятка по тренажёру"
+              title="Памятка по тренажёру: настройки, сетка весов, фото"
+              className="flex size-8 items-center justify-center rounded-full border border-black/15 text-sm opacity-60 transition duration-75 active:scale-90 dark:border-white/20"
+            >
+              i
+            </Link>
+          )}
           <form action={deferItem}>
             <input type="hidden" name="itemId" value={item.id} />
             <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs dark:border-white/20">
               {logged.length > 0 ? 'Прервали' : 'Занято'}
-            </SubmitButton>
-          </form>
-          <form action={skipItem}>
-            <input type="hidden" name="itemId" value={item.id} />
-            <SubmitButton className="rounded-full border border-black/15 px-3 py-1.5 text-xs opacity-60 dark:border-white/20">
-              Пропустить
             </SubmitButton>
           </form>
         </div>

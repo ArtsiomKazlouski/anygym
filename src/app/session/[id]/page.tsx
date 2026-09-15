@@ -29,15 +29,14 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     exercisesInGym(userId, data.session.gymId),
     equipmentInGym(userId, data.session.gymId),
   ])
-  const order = { active: 0, pending: 1, deferred: 2, done: 3, skipped: 4 } as const
-  const sorted = [...data.items].sort(
-    (a, b) => order[a.item.status] - order[b.item.status] || a.item.position - b.item.position,
-  )
+  // Порядок строго по плану: пункт не должен прыгать по списку от смены статуса.
+  // «Занято» и так уводит его в конец, меняя позицию.
+  const sorted = [...data.items].sort((a, b) => a.item.position - b.item.position)
 
-  // Текущий пункт — первый незакрытый. Отложенные уезжают вниз, но остаются доступны.
-  const currentId = sorted.find(
-    (r) => r.item.status === 'active' || r.item.status === 'pending',
-  )?.item.id
+  // Текущий — тот, на который переключились; иначе первый несделанный.
+  const currentId =
+    sorted.find((r) => r.item.status === 'active')?.item.id ??
+    sorted.find((r) => r.item.status === 'pending')?.item.id
 
   // Разминка привязана к мышечной группе: смотрим, работали ли её уже сегодня.
   const workedGroups = new Set(

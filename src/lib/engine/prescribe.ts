@@ -399,6 +399,40 @@ export function nextSet(args: {
 }
 
 /**
+ * Разминка тяжелее рабочего веса означает, что рабочий занижен.
+ *
+ * Разминаются легче, чем работают — иначе это не разминка. Если движок
+ * предложил рабочие 10, а человек размялся на 12, спорить с ним бессмысленно:
+ * двенадцать он только что поднял, а десять ему навязывают из-за неудачной
+ * прошлой тренировки. Остаток подтягивается к фактическому весу разминки.
+ *
+ * Обратное неверно: лёгкая разминка ничего не говорит о рабочем весе
+ * и вниз его не тянет.
+ */
+export function liftAfterWarmup(args: {
+  sets: SetPlan[]
+  warmupKg: number
+  grid: WeightGrid
+}): { sets: SetPlan[]; lifted: boolean } {
+  const { sets, warmupKg, grid } = args
+  const working = sets.filter((s) => s.role !== 'warmup')
+  if (working.length === 0) return { sets, lifted: false }
+
+  const lightest = Math.min(...working.map((s) => s.weight.weightKg))
+  if (warmupKg <= lightest + 1e-9) return { sets, lifted: false }
+
+  const raised = snapKg(warmupKg, grid, 'nearest')
+  return {
+    sets: sets.map((s) =>
+      s.role === 'warmup' || s.weight.weightKg >= warmupKg - 1e-9
+        ? s
+        : { ...s, weight: raised },
+    ),
+    lifted: true,
+  }
+}
+
+/**
  * Пересчёт остатка рампы под фактически поставленный вес.
  *
  * Ты поставил не то, что предложено — значит сегодня рампа идёт по другой

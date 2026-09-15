@@ -6,6 +6,7 @@ import {
   type SetPlan,
   type WeightGrid,
   capRamp,
+  liftAfterWarmup,
   nextSet,
   prescribe,
   reanchorRamp,
@@ -33,6 +34,8 @@ export type ItemPlan = {
   current: SetPlan | null
   /** Остаток плана после текущего подхода — чтобы показать, что впереди. */
   upcoming: SetPlan[]
+  /** Модель железки — ссылка на памятку с настройками. */
+  modelId: string
   /** Адрес фото железки — свериться, та ли это машина. */
   photoUrl: string | null
   /** Запомненные настройки железки. */
@@ -106,6 +109,7 @@ export async function buildItemPlan(args: {
   const notes = [...prescription.notes]
   const base = {
     grid,
+    modelId: exercise.model.id,
     photoUrl: exercise.model.hasPhoto ? photoUrl(exercise.model) : null,
     prescription,
     repMin: args.repMin,
@@ -179,6 +183,16 @@ export async function buildItemPlan(args: {
       notes.push(
         `Ты поставил ${previous.weight} вместо ${previousPlan.weight.weight} — остаток пересчитан`,
       )
+    }
+  }
+
+  // Разминка тяжелее рабочего веса — значит рабочий занижен, и спорить
+  // с уже поднятым весом бессмысленно.
+  if (previous?.kind === 'warmup') {
+    const lift = liftAfterWarmup({ sets: effective, warmupKg: previous.weightKg, grid })
+    effective = lift.sets
+    if (lift.lifted) {
+      notes.push(`Размялся на ${previous.weight} — рабочий вес подтянут к этому`)
     }
   }
 

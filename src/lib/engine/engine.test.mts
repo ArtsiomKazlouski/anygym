@@ -8,6 +8,7 @@ import {
   prescribe,
   capRamp,
   isFailed,
+  liftAfterWarmup,
   reanchorRamp,
   type LoggedSet,
   type Prescription,
@@ -764,5 +765,53 @@ describe('список достижимых весов', () => {
 
   it('при неизвестной сетке отдаёт пусто — остаётся ввод руками', () => {
     assert.deepEqual(gridOptions({ units: 'kg' }), [])
+  })
+})
+
+describe('разминка тяжелее рабочего веса', () => {
+  const grid = stack(2)
+
+  const straight = () =>
+    prescribe({
+      scheme: 'straight',
+      grid,
+      repMin: 13,
+      repMax: 15,
+      sets: 3,
+      lastSessionSets: sets([12, 9, 'limit']),
+      daysSincePattern: 5,
+      painRecent: false,
+      firstForMuscleGroup: true,
+    }).sets
+
+  it('подтягивает рабочий вес к фактической разминке', () => {
+    // Реальный случай: движок снял ступень до 10, человек размялся на 12.
+    // Двенадцать он только что поднял — спорить с этим бессмысленно.
+    const plan = straight()
+    const r = liftAfterWarmup({ sets: plan, warmupKg: 12, grid })
+    assert.equal(r.lifted, true)
+    for (const s of r.sets.filter((x) => x.role === 'working')) {
+      assert.equal(s.weight.weight, 12)
+    }
+  })
+
+  it('лёгкая разминка рабочий вес не трогает', () => {
+    const plan = straight()
+    const working = plan.filter((s) => s.role === 'working')[0].weight.weight
+    const r = liftAfterWarmup({ sets: plan, warmupKg: 4, grid })
+    assert.equal(r.lifted, false)
+    assert.equal(r.sets.filter((s) => s.role === 'working')[0].weight.weight, working)
+  })
+
+  it('саму разминку не переписывает', () => {
+    const plan = straight()
+    const r = liftAfterWarmup({ sets: plan, warmupKg: 12, grid })
+    const warmup = r.sets.find((s) => s.role === 'warmup')
+    const before = plan.find((s) => s.role === 'warmup')
+    assert.equal(warmup?.weight.weight, before?.weight.weight)
+  })
+
+  it('без рабочих подходов ничего не делает', () => {
+    assert.equal(liftAfterWarmup({ sets: [], warmupKg: 50, grid }).lifted, false)
   })
 })

@@ -290,15 +290,23 @@ export async function addSet(formData: FormData) {
 }
 
 /**
- * Пропустить: сегодня этого не будет. В отличие от «занято», пункт не уезжает
- * в конец и возвращаться к нему не предложат — но записанные подходы
- * сохраняются, если упражнение было начато.
+ * Переводит внимание на этот пункт.
+ *
+ * Заменяет и «вернуться к отложенному», и попытки переставлять упражнения
+ * местами: к любому можно просто перейти тапом. Активным может быть только
+ * один пункт, поэтому прежний возвращается в очередь.
  */
-export async function skipItem(formData: FormData) {
+export async function focusItem(formData: FormData) {
   const userId = await requireUser()
   const itemId = String(formData.get('itemId') ?? '')
   const { item } = await ownedItem(userId, itemId)
-  await db.update(sessionItems).set({ status: 'skipped' }).where(eq(sessionItems.id, item.id))
+
+  await db
+    .update(sessionItems)
+    .set({ status: 'pending' })
+    .where(and(eq(sessionItems.sessionId, item.sessionId), eq(sessionItems.status, 'active')))
+
+  await db.update(sessionItems).set({ status: 'active' }).where(eq(sessionItems.id, item.id))
   revalidatePath(`/session/${item.sessionId}`)
 }
 
@@ -318,14 +326,6 @@ export async function deferItem(formData: FormData) {
     .set({ status: 'deferred', position: max + 1, deferredCount: item.deferredCount + 1 })
     .where(eq(sessionItems.id, item.id))
 
-  revalidatePath(`/session/${item.sessionId}`)
-}
-
-export async function resumeItem(formData: FormData) {
-  const userId = await requireUser()
-  const itemId = String(formData.get('itemId') ?? '')
-  const { item } = await ownedItem(userId, itemId)
-  await db.update(sessionItems).set({ status: 'active' }).where(eq(sessionItems.id, item.id))
   revalidatePath(`/session/${item.sessionId}`)
 }
 

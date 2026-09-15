@@ -34,6 +34,7 @@ export {
   deloadFactor,
   interSessionDelta,
   isFailed,
+  liftAfterWarmup,
   nextSet,
   prescribe,
   reanchorRamp,
