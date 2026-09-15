@@ -1,6 +1,15 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { equipmentModels, equipmentSetups, exercises, gymEquipment, gyms } from '@/db/schema'
+import {
+  equipmentModels,
+  equipmentSetups,
+  exercises,
+  gymEquipment,
+  gyms,
+  sessionItems,
+  setLogs,
+  workoutSessions,
+} from '@/db/schema'
 import { MODEL_COLUMNS } from './columns'
 
 /**
@@ -27,6 +36,47 @@ export async function gymsWithCounts(userId: string) {
     .where(and(eq(gyms.userId, userId), eq(gyms.isActive, true)))
     .groupBy(gyms.id)
     .orderBy(gyms.name)
+}
+
+/**
+ * Последний рабочий подход по каждому упражнению.
+ *
+ * Нужен, чтобы показать настоящий текущий вес рядом со стартовым: стартовый
+ * задаётся один раз и с тех пор не меняется, а человек читает его как
+ * «мой рабочий вес» и удивляется расхождению.
+ *
+ * DISTINCT ON — расширение Postgres: одна строка на упражнение, самая свежая.
+ * Через построитель запросов он не выражается, отсюда сырой SQL.
+ */
+export async function lastWorkingSets(userId: string) {
+  const result = await db.execute(sql`
+    select distinct on (si.exercise_id)
+      si.exercise_id as exercise_id,
+      sl.weight      as weight,
+      sl.units       as units,
+      sl.logged_at   as logged_at
+    from ${setLogs} sl
+    join ${sessionItems} si on si.id = sl.session_item_id
+    join ${workoutSessions} ws on ws.id = si.session_id
+    where ws.user_id = ${userId}
+      and sl.kind = 'working'
+      and si.exercise_id is not null
+    order by si.exercise_id, sl.logged_at desc
+  `)
+
+  const rows = (Array.isArray(result) ? result : (result.rows ?? [])) as {
+    exercise_id: string
+    weight: string
+    units: 'kg' | 'lb'
+    logged_at: string
+  }[]
+
+  return new Map(
+    rows.map((r) => [
+      r.exercise_id,
+      { weight: Number(r.weight), units: r.units, at: new Date(r.logged_at) },
+    ]),
+  )
 }
 
 /** Весь каталог упражнений: цель повторов правится здесь. */

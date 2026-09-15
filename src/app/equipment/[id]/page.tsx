@@ -155,7 +155,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs opacity-55">Рабочий вес</span>
+                    <span className="text-xs opacity-55">Стартовый вес</span>
                     <input
                       name="declaredWorkingKg"
                       inputMode="decimal"
@@ -205,7 +205,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
               <input
                 name="declaredWorkingKg"
                 inputMode="decimal"
-                placeholder="Рабочий вес"
+                placeholder="Стартовый вес"
                 className={field}
               />
             </div>
