@@ -1,5 +1,5 @@
 import { SubmitButton } from '@/components/submit-button'
-import { PATTERNS } from '@/lib/patterns'
+import { PatternSelect } from '@/components/pattern-select'
 import { addSessionItem, createExerciseAndAdd } from '@/lib/session/actions'
 
 type Exercise = { id: string; name: string; modelName: string }
@@ -18,10 +18,12 @@ export function AddExercise({
   sessionId,
   exercises,
   equipment,
+  patternCounts,
 }: {
   sessionId: string
   exercises: Exercise[]
   equipment: Equipment[]
+  patternCounts: Map<string, number>
 }) {
   const control =
     'w-full rounded-xl border border-black/15 bg-transparent px-3 py-3 text-base dark:border-white/20'
@@ -71,16 +73,7 @@ export function AddExercise({
               </option>
             ))}
           </select>
-          <select name="patternCode" required defaultValue="" className={control}>
-            <option value="" disabled>
-              какое это движение
-            </option>
-            {PATTERNS.map((p) => (
-              <option key={p.code} value={p.code}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+          <PatternSelect counts={patternCounts} className={control} />
           <input
             name="targetReps"
             inputMode="numeric"

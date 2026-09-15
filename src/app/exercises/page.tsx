@@ -5,8 +5,14 @@ import { AppNav } from '@/components/app-nav'
 import { EquipmentIcon } from '@/components/equipment-icon'
 import { SubmitButton } from '@/components/submit-button'
 import { createExerciseOn, updateExercise } from '@/lib/equipment/actions'
-import { allEquipment, allExercises, lastWorkingSets } from '@/lib/equipment/queries'
-import { PATTERNS, getPattern } from '@/lib/patterns'
+import {
+  allEquipment,
+  allExercises,
+  exercisesPerPattern,
+  lastWorkingSets,
+} from '@/lib/equipment/queries'
+import { PatternSelect } from '@/components/pattern-select'
+import { getPattern } from '@/lib/patterns'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -16,10 +22,11 @@ export default async function ExercisesPage() {
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [list, lastSets, equipment] = await Promise.all([
+  const [list, lastSets, equipment, counts] = await Promise.all([
     allExercises(userId),
     lastWorkingSets(userId),
     allEquipment(userId),
+    exercisesPerPattern(userId),
   ])
   const day = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' })
 
@@ -75,21 +82,7 @@ export default async function ExercisesPage() {
                   <span className="text-xs opacity-55">Название</span>
                   <input name="name" required defaultValue={e.name} className={field} />
                 </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs opacity-55">Движение</span>
-                  <select
-                    name="patternCode"
-                    required
-                    defaultValue={e.patternCode}
-                    className={field}
-                  >
-                    {PATTERNS.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <PatternSelect counts={counts} defaultValue={e.patternCode} className={field} />
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Целевые повторы</span>
                   <input
@@ -167,19 +160,7 @@ export default async function ExercisesPage() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs opacity-55">Движение</span>
-              <select name="patternCode" required defaultValue="" className={field}>
-                <option value="" disabled>
-                  какое это движение
-                </option>
-                {PATTERNS.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <PatternSelect counts={counts} className={field} />
             <label className="flex flex-col gap-1">
               <span className="text-xs opacity-55">Целевые повторы</span>
               <input

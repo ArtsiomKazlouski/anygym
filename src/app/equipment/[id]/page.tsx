@@ -12,8 +12,9 @@ import {
   updateEquipment,
   updateExercise,
 } from '@/lib/equipment/actions'
-import { equipmentCard } from '@/lib/equipment/queries'
-import { PATTERNS, getPattern } from '@/lib/patterns'
+import { equipmentCard, exercisesPerPattern } from '@/lib/equipment/queries'
+import { PatternSelect } from '@/components/pattern-select'
+import { getPattern } from '@/lib/patterns'
 
 const SETUP_FIELDS = ['сиденье', 'спинка', 'хват', 'упор'] as const
 const field =
@@ -25,7 +26,10 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const data = await equipmentCard(userId, id)
+  const [data, counts] = await Promise.all([
+    equipmentCard(userId, id),
+    exercisesPerPattern(userId),
+  ])
   if (!data) redirect('/gyms')
 
   const settings = data.setup?.settings ?? {}
@@ -130,21 +134,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                   <span className="text-xs opacity-55">Название</span>
                   <input name="name" required defaultValue={e.name} className={field} />
                 </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs opacity-55">Движение</span>
-                  <select
-                    name="patternCode"
-                    required
-                    defaultValue={e.patternCode}
-                    className={field}
-                  >
-                    {PATTERNS.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <PatternSelect counts={counts} defaultValue={e.patternCode} className={field} />
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Целевые повторы</span>
                   <input
@@ -175,16 +165,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
           <form action={createExerciseOn} className="mt-3 flex flex-col gap-2">
             <input type="hidden" name="modelId" value={data.model.id} />
             <input name="name" required placeholder="Название" className={field} />
-            <select name="patternCode" required defaultValue="" className={field}>
-              <option value="" disabled>
-                какое это движение
-              </option>
-              {PATTERNS.map((p) => (
-                <option key={p.code} value={p.code}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+            <PatternSelect counts={counts} className={field} />
             <input
               name="targetReps"
               inputMode="numeric"

@@ -79,6 +79,21 @@ export async function lastWorkingSets(userId: string) {
   )
 }
 
+/**
+ * Сколько упражнений уже в каждой группе взаимозаменяемых.
+ *
+ * Показывается прямо в выборе: без этого поле читается как пересказ названия
+ * упражнения, а не как «вот с чем оно встанет в один ряд».
+ */
+export async function exercisesPerPattern(userId: string) {
+  const rows = await db
+    .select({ patternCode: exercises.patternCode, n: sql<number>`count(*)::int` })
+    .from(exercises)
+    .where(and(eq(exercises.userId, userId), eq(exercises.isActive, true)))
+    .groupBy(exercises.patternCode)
+  return new Map(rows.map((r) => [r.patternCode, r.n]))
+}
+
 /** Всё оборудование пользователя — для выбора при заведении упражнения. */
 export async function allEquipment(userId: string) {
   return db
