@@ -82,8 +82,8 @@ describe('межсессионная прогрессия', () => {
     )
   })
 
-  it('не растит, если хоть один подход был на пределе', () => {
-    assert.equal(interSessionDelta(sets([50, 12, 'on_target'], [50, 12, 'limit']), 8, 12), 0)
+  it('не растит, пока диапазон не закрыт', () => {
+    assert.equal(interSessionDelta(sets([50, 12, 'on_target'], [50, 11, 'limit']), 8, 12), 0)
   })
 
   it('снижает, когда провалена половина подходов', () => {
@@ -320,8 +320,8 @@ describe('рампа', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      // 'limit' на верхнем: повторы закрыты, но вес не растим
-      lastSessionSets: sets([100, 6, 'limit']),
+      // пять повторов при цели шесть: диапазон не закрыт, вес держим
+      lastSessionSets: sets([100, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     })
@@ -401,7 +401,7 @@ describe('рампа', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.6, 0.8, 0.9, 1],
-      lastSessionSets: sets([100, 6, 'limit']),
+      lastSessionSets: sets([100, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     })
@@ -417,7 +417,7 @@ describe('рампа', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.6, 0.8, 0.9, 1],
-      lastSessionSets: sets([100, 6, 'limit']),
+      lastSessionSets: sets([100, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     })
@@ -430,7 +430,6 @@ describe('рампа', () => {
   })
 })
 
-
 describe('пересчёт рампы под фактический вес', () => {
   const olympicBar: WeightGrid = { units: 'kg', step: 2.5, barWeight: 20, max: 200 }
 
@@ -441,7 +440,7 @@ describe('пересчёт рампы под фактический вес', () 
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      lastSessionSets: sets([100, 6, 'limit']),
+      lastSessionSets: sets([100, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     }).sets
@@ -582,7 +581,8 @@ describe('грубый шаг для подводящих', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.2, 0.6, 0.8, 0.9, 1],
-      lastSessionSets: sets([topKg, 6, 'limit']),
+      // пять повторов при цели шесть: диапазон не закрыт, верх остаётся
+      lastSessionSets: sets([topKg, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     })
@@ -597,7 +597,7 @@ describe('грубый шаг для подводящих', () => {
   })
 
   it('прогрессия по-прежнему идёт мелким шагом', () => {
-    // Закрыл верх диапазона без надрыва -> +2.5, а не +5.
+    // Закрыл верх диапазона -> +2.5, а не +5.
     const p = prescribe({
       scheme: 'ramp',
       grid: bar,
@@ -619,7 +619,7 @@ describe('грубый шаг для подводящих', () => {
       repMin: 5,
       repMax: 6,
       rampPercents: [0.6, 0.8, 1],
-      lastSessionSets: sets([102.5, 6, 'limit']),
+      lastSessionSets: sets([102.5, 5, 'on_target']),
       daysSincePattern: 7,
       painRecent: false,
     })
@@ -666,5 +666,44 @@ describe('список достижимых весов', () => {
 
   it('при неизвестной сетке отдаёт пусто — остаётся ввод руками', () => {
     assert.deepEqual(gridOptions({ units: 'kg' }), [])
+  })
+})
+
+describe('между тренировками решают повторы, а не кнопка', () => {
+  it('закрыл диапазон во всех подходах — вес растёт, даже если было тяжело', () => {
+    // Реальный случай: 15, 15, 15 при цели 15, последний «на пределе».
+    // Верхняя граница диапазона почти всегда ощущается предельной —
+    // иначе прогресс невозможен в принципе.
+    assert.equal(
+      interSessionDelta(
+        sets([14, 15, 'on_target'], [14, 15, 'on_target'], [14, 15, 'limit']),
+        13,
+        15,
+      ),
+      1,
+    )
+  })
+
+  it('не закрыл диапазон — держим, как бы легко ни было', () => {
+    assert.equal(
+      interSessionDelta(sets([14, 14, 'easy'], [14, 15, 'easy'], [14, 13, 'easy']), 13, 15),
+      0,
+    )
+  })
+
+  it('один провал держит вес, даже если остальные закрыли диапазон', () => {
+    assert.equal(
+      interSessionDelta(
+        sets([14, 15, 'on_target'], [14, 15, 'on_target'], [14, 9, 'limit']),
+        13,
+        15,
+      ),
+      0,
+      'провал не должен соседствовать с прибавкой',
+    )
+  })
+
+  it('половина провалена — вниз', () => {
+    assert.equal(interSessionDelta(sets([14, 9, 'limit'], [14, 15, 'on_target']), 13, 15), -1)
   })
 })

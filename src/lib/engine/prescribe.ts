@@ -139,7 +139,17 @@ export function isFailed(set: LoggedSet, repMin: number): boolean {
   return set.reps < repMin && set.feedback !== 'easy'
 }
 
-/** Межсессионная прогрессия (раздел 5.4): -1 вниз, 0 держим, +1 вверх. */
+/**
+ * Межсессионная прогрессия (раздел 5.4): -1 вниз, 0 держим, +1 вверх.
+ *
+ * Между тренировками решают повторы, а не кнопка. Раньше ответ «на пределе»
+ * хоть на одном подходе блокировал рост — и прогресс становился невозможен:
+ * последний подход на верхней границе диапазона почти всегда ощущается
+ * предельным, в этом и смысл границы. Человек делал 15, 15, 15 при цели 15
+ * и стоял на одном весе бесконечно.
+ *
+ * Кнопка по-прежнему правит вес внутри тренировки — там она к месту.
+ */
 export function interSessionDelta(
   sets: LoggedSet[],
   repMin: number,
@@ -149,12 +159,9 @@ export function interSessionDelta(
 
   const failed = sets.filter((s) => isFailed(s, repMin)).length
   if (failed * 2 >= sets.length) return -1
+  if (failed > 0) return 0
 
-  const reachedMax = sets.every((s) => s.reps >= repMax)
-  const anyHard = sets.some((s) => s.feedback === 'limit' || failed > 0)
-  if (reachedMax && !anyHard) return 1
-
-  return 0
+  return sets.every((s) => s.reps >= repMax) ? 1 : 0
 }
 
 /**
@@ -360,7 +367,7 @@ export function nextSet(args: {
       return {
         action: 'continue',
         weight: snapKg(currentKg, grid, 'nearest'),
-        note: 'На пределе — в следующий раз вес не растим',
+        note: 'На пределе — вес в следующем подходе держим',
       }
     case 'failed':
       return { action: 'continue', weight: stepKg(currentKg, grid, -1) }
