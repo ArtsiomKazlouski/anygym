@@ -7,6 +7,7 @@ import { auth } from '@/auth'
 import { db } from '@/db'
 import { equipmentModels, equipmentSetups, exercises, gymEquipment, gyms } from '@/db/schema'
 import type { MuscleCode } from '@/lib/muscles'
+import { leadFrom } from '@/lib/templates/parse'
 import { parseLadder } from './ladder'
 
 async function requireUser() {
@@ -302,12 +303,17 @@ export async function createExerciseOn(formData: FormData) {
   const muscleGroup = str(formData, 'muscleGroup') as MuscleCode
   if (!name || !muscleGroup) throw new Error('Нужны название и мышечная группа')
 
+  const lead = leadFrom(str(formData, 'lead'), str(formData, 'leadMode'))
+  if (lead.error) throw new Error(lead.error)
+
   await db.insert(exercises).values({
     userId,
     name,
     muscleGroup,
     equipmentModelId,
     targetReps: Math.round(num(formData, 'targetReps') ?? 12),
+    leadKg: lead.leadKg,
+    leadPercents: lead.leadPercents,
   })
   revalidatePath(`/equipment/${equipmentModelId}`)
   revalidatePath('/exercises')
@@ -324,12 +330,17 @@ export async function updateExercise(formData: FormData) {
   if (!name || !muscleGroup) throw new Error('Нужны название и мышечная группа')
   if (targetReps == null || targetReps < 1) throw new Error('Нужны целевые повторы')
 
+  const lead = leadFrom(str(formData, 'lead'), str(formData, 'leadMode'))
+  if (lead.error) throw new Error(lead.error)
+
   await db
     .update(exercises)
     .set({
       name,
       muscleGroup,
       targetReps: Math.round(targetReps),
+      leadKg: lead.leadKg,
+      leadPercents: lead.leadPercents,
     })
     .where(and(eq(exercises.id, id), eq(exercises.userId, userId)))
   revalidatePath(`/equipment/${modelId}`)

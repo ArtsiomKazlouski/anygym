@@ -14,6 +14,7 @@ import {
 } from '@/lib/equipment/actions'
 import { equipmentCard, exercisesPerMuscle } from '@/lib/equipment/queries'
 import { MuscleSelect } from '@/components/muscle-select'
+import { LeadInField } from '@/components/lead-in-field'
 import { muscleTitle } from '@/lib/muscles'
 
 const SETUP_FIELDS = ['сиденье', 'спинка', 'хват', 'упор'] as const
@@ -124,7 +125,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
               </summary>
 
               <form
-                key={`${e.name}-${e.muscleGroup}-${e.targetReps}`}
+                key={`${e.name}-${e.muscleGroup}-${e.targetReps}-${e.leadKg}-${e.leadPercents}`}
                 action={updateExercise}
                 className="mt-2 flex flex-col gap-2"
               >
@@ -144,6 +145,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
                     className={field}
                   />
                 </label>
+                <LeadInField item={e} className={field} />
                 <SubmitButton className="rounded-xl border border-black/15 py-2.5 text-sm dark:border-white/20">
                   Сохранить
                 </SubmitButton>
@@ -172,6 +174,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
               placeholder="Повторы, обычно 12"
               className={field}
             />
+            <LeadInField className={field} />
             <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
               Создать
             </SubmitButton>

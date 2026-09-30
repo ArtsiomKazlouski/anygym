@@ -42,9 +42,9 @@ type ExerciseSeed = {
   name: string
   muscle: MuscleCode
   model: string
-  /** Целевые повторы — свойство упражнения, а не плана. */
+  /** Целевые повторы и подводка — свойства упражнения, а не плана. */
   targetReps: number
-  notes?: string
+  leadKg?: number[]
 }
 
 const MODELS: (Omit<ModelSeed, 'userId'> & { key: string })[] = [
@@ -92,6 +92,7 @@ const EXERCISES: ExerciseSeed[] = [
   {
     key: 'bench',
     targetReps: 6,
+    leadKg: [20, 60, 80, 90],
     name: 'Жим лёжа',
     muscle: 'chest',
     model: 'barbell',
@@ -117,7 +118,6 @@ const EXERCISES: ExerciseSeed[] = [
     name: 'Сведение в бабочке',
     muscle: 'chest',
     model: 'pec_deck',
-    notes: 'Вес не помнит: называл 30-70',
   },
   {
     key: 'cross',
@@ -166,19 +166,16 @@ const EXERCISES: ExerciseSeed[] = [
 type ItemSeed = {
   exercise: string
   sets?: number
-  leadKg?: number[]
   note?: string
 }
 
 const ITEMS: ItemSeed[] = [
   {
     exercise: 'bench',
-    leadKg: [20, 60, 80, 90],
     note: 'Потолок был 100, выше не шёл. Теперь верх ведёт фидбек',
   },
   {
     exercise: 'db45',
-    leadKg: [22, 26, 32],
   },
   {
     exercise: 'db30',
@@ -202,7 +199,6 @@ const ITEMS: ItemSeed[] = [
   },
   {
     exercise: 'abs',
-    leadKg: [33, 44],
   },
 ]
 
@@ -280,7 +276,7 @@ for (const e of EXERCISES) {
           muscleGroup: e.muscle,
           equipmentModelId: modelIds.get(e.model)!,
           targetReps: e.targetReps,
-          notes: e.notes,
+          leadKg: e.leadKg,
         })
         .returning()
     )[0]
@@ -301,7 +297,6 @@ if (!existingTemplate) {
       position: i,
       exerciseId: exerciseIds.get(it.exercise)!,
       sets: it.sets ?? 3,
-      leadKg: it.leadKg,
       note: it.note,
     })),
   )

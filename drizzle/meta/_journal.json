@@ -106,6 +106,20 @@
       "when": 1789508917596,
       "tag": "0014_drop-ramp-percents",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790774802516,
+      "tag": "0015_exercise-lead-in",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790774817073,
+      "tag": "0016_drop-plan-lead-in",
+      "breakpoints": true
     }
   ]
 }

@@ -13,7 +13,7 @@ import {
 } from '@/lib/templates/actions'
 import { templateWithItems } from '@/lib/templates/queries'
 import { MUSCLES, muscleTitle } from '@/lib/muscles'
-import { leadKgToInput } from '@/lib/templates/parse'
+import { leadToInput } from '@/lib/templates/parse'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -32,9 +32,9 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
   // бицепса и совсем ли нет спины» задаётся при планировании, а не постфактум,
   // поэтому счёт стоит прямо здесь.
   const perMuscle = new Map<string, number>()
-  for (const { item, muscleGroup } of data.items) {
+  for (const { item, exercise } of data.items) {
     // Подводка в объём не входит — она затем и подводка.
-    perMuscle.set(muscleGroup, (perMuscle.get(muscleGroup) ?? 0) + item.sets)
+    perMuscle.set(exercise.muscleGroup, (perMuscle.get(exercise.muscleGroup) ?? 0) + item.sets)
   }
   const volume = MUSCLES.filter((m) => perMuscle.has(m.code))
 
@@ -72,12 +72,14 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
           <p className="text-sm opacity-50">Пунктов пока нет — добавь первое упражнение.</p>
         )}
 
-        {data.items.map(({ item, exerciseName, muscleGroup, targetReps }, index) => {
+        {data.items.map(({ item, exercise }, index) => {
           // Вес подводки, а не только её длина: «подводка 2» не отвечает
           // на вопрос, который к плану задают, — что вешать.
-          const lead = leadKgToInput(item.leadKg)
+          const lead = leadToInput(exercise)
+          const unit = exercise.leadPercents?.length ? ' %' : ''
           const summary =
-            (lead ? `подводка ${lead} · ` : '') + `${item.sets} подх. × ${targetReps}`
+            (lead ? `подводка ${lead}${unit} · ` : '') +
+            `${item.sets} подх. × ${exercise.targetReps}`
 
           return (
             <details
@@ -86,10 +88,10 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
             >
               <summary className="cursor-pointer">
                 <span className="text-sm font-medium">
-                  {index + 1}. {exerciseName}
+                  {index + 1}. {exercise.name}
                 </span>
                 <span className="ml-2 text-xs opacity-45">
-                  {muscleTitle(muscleGroup)} · {summary}
+                  {muscleTitle(exercise.muscleGroup)} · {summary}
                 </span>
               </summary>
 
@@ -116,7 +118,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
 
               <div className="mt-2">
                 <TemplateItemForm
-                  key={JSON.stringify([item.exerciseId, item.sets, item.leadKg, item.note])}
+                  key={JSON.stringify([item.exerciseId, item.sets, item.note])}
                   action={updateTemplateItem}
                   templateId={data.template.id}
                   item={item}

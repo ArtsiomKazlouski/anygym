@@ -12,6 +12,7 @@ import {
   lastWorkingSets,
 } from '@/lib/equipment/queries'
 import { MuscleSelect } from '@/components/muscle-select'
+import { LeadInField } from '@/components/lead-in-field'
 import { muscleTitle } from '@/lib/muscles'
 
 const field =
@@ -72,7 +73,7 @@ export default async function ExercisesPage() {
               </summary>
 
               <form
-                key={`${e.name}-${e.muscleGroup}-${e.targetReps}`}
+                key={`${e.name}-${e.muscleGroup}-${e.targetReps}-${e.leadKg}-${e.leadPercents}`}
                 action={updateExercise}
                 className="mt-3 flex flex-col gap-2"
               >
@@ -92,6 +93,7 @@ export default async function ExercisesPage() {
                     className={field}
                   />
                 </label>
+                <LeadInField item={e} className={field} />
 
                 <p className="text-xs opacity-45">
                   {last ? (
@@ -170,6 +172,7 @@ export default async function ExercisesPage() {
                 className={field}
               />
             </label>
+            <LeadInField className={field} />
             <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
               Создать
             </SubmitButton>

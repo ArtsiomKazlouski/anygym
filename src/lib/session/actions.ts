@@ -16,7 +16,7 @@ import {
 } from '@/db/schema'
 import { toKg } from '@/lib/engine'
 import type { MuscleCode } from '@/lib/muscles'
-import { rangeFromTarget } from '@/lib/templates/parse'
+import { leadFrom, rangeFromTarget } from '@/lib/templates/parse'
 import { resolveGrid } from './grid'
 
 async function requireUser() {
@@ -212,6 +212,12 @@ export async function createExerciseAndAdd(formData: FormData) {
     throw new Error('Не выбраны мышечная группа или тренажёр')
   }
 
+  const lead = leadFrom(
+    String(formData.get('lead') ?? ''),
+    String(formData.get('leadMode') ?? ''),
+  )
+  if (lead.error) throw new Error(lead.error)
+
   const targetReps = Number(String(formData.get('targetReps') ?? '').trim())
   const [exercise] = await db
     .insert(exercises)
@@ -221,6 +227,8 @@ export async function createExerciseAndAdd(formData: FormData) {
       muscleGroup,
       equipmentModelId,
       targetReps: Number.isFinite(targetReps) && targetReps > 0 ? Math.round(targetReps) : 12,
+      leadKg: lead.leadKg,
+      leadPercents: lead.leadPercents,
     })
     .returning()
 

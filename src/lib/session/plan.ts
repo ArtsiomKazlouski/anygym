@@ -53,7 +53,6 @@ export async function buildItemPlan(args: {
   sessionId: string
   exerciseId: string
   sets: number
-  leadKg: number[] | undefined
   repMin: number
   repMax: number
   extraSets: number
@@ -96,7 +95,10 @@ export async function buildItemPlan(args: {
     repMax: args.repMax,
     sets: args.sets,
     extraSets: args.extraSets,
-    leadKg: args.leadKg,
+    // Подводка — свойство упражнения. Оттого она и работает у пунктов,
+    // добавленных на тренировке на ходу: у них нет строки в плане.
+    leadKg: exercise.ex.leadKg ?? undefined,
+    leadPercents: exercise.ex.leadPercents ?? undefined,
     lastSessionSets: last.sets,
     daysSinceMuscle: days,
     painRecent: pain,

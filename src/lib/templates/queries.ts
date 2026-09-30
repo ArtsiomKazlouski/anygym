@@ -26,9 +26,7 @@ export async function templateWithItems(userId: string, templateId: string) {
   const items = await db
     .select({
       item: templateItems,
-      exerciseName: exercises.name,
-      muscleGroup: exercises.muscleGroup,
-      targetReps: exercises.targetReps,
+      exercise: exercises,
     })
     .from(templateItems)
     .innerJoin(exercises, eq(exercises.id, templateItems.exerciseId))

@@ -1,5 +1,4 @@
 import { SubmitButton } from '@/components/submit-button'
-import { leadKgToInput } from '@/lib/templates/parse'
 import type { templateItems } from '@/db/schema'
 
 type Item = typeof templateItems.$inferSelect
@@ -9,9 +8,10 @@ const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
 
 /**
- * Пункт плана. Одна форма на добавление и на правку.
+ * Пункт плана: упражнение и сколько его делать сегодня.
  *
- * Подводка вводится и хранится в килограммах: что ввёл, то и увидишь.
+ * Подводка и цель повторов сюда не входят — это свойства упражнения,
+ * одинаковые в любом плане. Здесь только то, что зависит от дня.
  */
 export function TemplateItemForm({
   action,
@@ -55,22 +55,6 @@ export function TemplateItemForm({
           defaultValue={item?.sets ?? 3}
           className={field}
         />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-xs opacity-55">Подводка, кг</span>
-        <input
-          name="rampWeights"
-          placeholder="60, 80"
-          defaultValue={leadKgToInput(item?.leadKg)}
-          className={field}
-        />
-        <span className="text-xs opacity-40">
-          Ступени до рабочего веса, последним числом — сам рабочий вес: он задаёт масштаб и в
-          подводку не входит. Пусто — упражнение начинается сразу с рабочего. Повторы на
-          подводке те же, что в упражнении. Числа показаны для текущего рабочего веса и поедут
-          вместе с ним; в зале движок положит их на удобные для блинов ступени.
-        </span>
       </label>
 
       <input

@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { leadKgFromInput, leadKgToInput, parseNumbers, rangeFromTarget } from './parse.ts'
+import {
+  DEFAULT_LEAD_PERCENTS,
+  leadFrom,
+  leadKgFromInput,
+  leadKgToInput,
+  leadToInput,
+  parseNumbers,
+  rangeFromTarget,
+} from './parse.ts'
 
 describe('разбор списка чисел', () => {
   it('понимает запятые и пробелы', () => {
@@ -36,6 +44,34 @@ describe('подводка в килограммах', () => {
 
   it('дробные ступени разбирает: гантели бывают по 2.5', () => {
     assert.deepEqual(leadKgFromInput('12.5, 17.5').values, [12.5, 17.5])
+  })
+})
+
+describe('подводка: режим и разбор', () => {
+  it('режим «нет» стирает подводку, что бы ни было в поле', () => {
+    assert.deepEqual(leadFrom('60, 80', ''), { leadKg: null, leadPercents: null })
+  })
+
+  it('килограммы кладутся как есть', () => {
+    assert.deepEqual(leadFrom('60, 80', 'kg'), { leadKg: [60, 80], leadPercents: null })
+  })
+
+  it('проценты вводятся как 60 и 80, а хранятся долями', () => {
+    assert.deepEqual(leadFrom('60, 80', 'percent'), { leadKg: null, leadPercents: [0.6, 0.8] })
+  })
+
+  it('пустое поле при выбранном режиме процентов даёт умолчание', () => {
+    assert.deepEqual(leadFrom('  ', 'percent').leadPercents, DEFAULT_LEAD_PERCENTS)
+  })
+
+  it('сотня и больше в процентах — ошибка, а не подводка тяжелее рабочего', () => {
+    assert.ok(leadFrom('60, 100', 'percent').error)
+  })
+
+  it('туда и обратно сходится в обоих режимах', () => {
+    assert.equal(leadToInput(leadFrom('60, 80', 'kg')), '60, 80')
+    assert.equal(leadToInput(leadFrom('60, 80', 'percent')), '60, 80')
+    assert.equal(leadToInput(leadFrom('', '')), '')
   })
 })
 

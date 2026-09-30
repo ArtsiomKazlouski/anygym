@@ -1,5 +1,6 @@
 import { SubmitButton } from '@/components/submit-button'
 import { MuscleSelect } from '@/components/muscle-select'
+import { LeadInField } from '@/components/lead-in-field'
 import { addSessionItem, createExerciseAndAdd } from '@/lib/session/actions'
 
 type Exercise = { id: string; name: string; modelName: string }
@@ -81,6 +82,7 @@ export function AddExercise({
             placeholder="Целевые повторы, обычно 12"
             className={control}
           />
+          <LeadInField className={control} />
           <SubmitButton className="rounded-xl bg-black py-3 text-sm font-medium text-white dark:bg-white dark:text-black">
             Завести и добавить
           </SubmitButton>

@@ -355,6 +355,75 @@ describe('рампа', () => {
     )
   })
 
+  it('проценты считаются от рабочего веса и ложатся на грубый шаг', () => {
+    const bar: WeightGrid = { units: 'kg', step: 5, rampStep: 20, barWeight: 20, max: 200 }
+    const p = prescribe({
+      grid: bar,
+      repMin: 8,
+      repMax: 10,
+      sets: 3,
+      leadPercents: [0.6, 0.8],
+      lastSessionSets: sets([100, 9, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [60, 80, 100, 100, 100],
+    )
+  })
+
+  it('проценты едут за рабочим весом, килограммы стоят на месте', () => {
+    const stackGrid = stack(5)
+    const base = {
+      grid: stackGrid,
+      repMin: 10,
+      repMax: 12,
+      sets: 3,
+      daysSinceMuscle: 7,
+      painRecent: false,
+    }
+    const now = prescribe({ ...base, leadPercents: [0.6, 0.8], lastSessionSets: sets([75, 11, 'on_target']) })
+    const later = prescribe({ ...base, leadPercents: [0.6, 0.8], lastSessionSets: sets([90, 11, 'on_target']) })
+    assert.deepEqual(
+      now.sets.filter((s) => s.role === 'ramp').map((s) => s.weight.weight),
+      [45, 60],
+    )
+    assert.deepEqual(
+      later.sets.filter((s) => s.role === 'ramp').map((s) => s.weight.weight),
+      [55, 70],
+      'подводка поехала за рабочим весом, руками её не трогали',
+    )
+
+    const fixed = prescribe({ ...base, leadKg: [45, 60], lastSessionSets: sets([90, 11, 'on_target']) })
+    assert.deepEqual(
+      fixed.sets.filter((s) => s.role === 'ramp').map((s) => s.weight.weight),
+      [45, 60],
+      'килограммы названы человеком и остаются на месте',
+    )
+  })
+
+  it('килограммы не округляются грубым шагом подводки', () => {
+    // Грубый шаг 20 существует, чтобы вычисленные проценты ложились на удобные
+    // блины. Введённые руками 90 он превратил бы в 80 — а 90 собирается ровно
+    // так же легко, человек их для того и назвал.
+    const bar: WeightGrid = { units: 'kg', step: 5, rampStep: 20, barWeight: 20, max: 200 }
+    const p = prescribe({
+      grid: bar,
+      repMin: 8,
+      repMax: 10,
+      sets: 3,
+      leadKg: [60, 90],
+      lastSessionSets: sets([105, 9, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.filter((s) => s.role === 'ramp').map((s) => s.weight.weight),
+      [60, 90],
+    )
+  })
+
   it('подводка едет вместе с рабочим весом, оставаясь на тех же блинах', () => {
     const bar: WeightGrid = { units: 'kg', step: 2.5, rampStep: 20, barWeight: 20, max: 200 }
     const p = prescribe({
@@ -682,13 +751,14 @@ describe('грубый шаг для подводящих', () => {
     )
   })
 
-  it('ступень не на сетке ложится на ближайшую пятёрку', () => {
+  it('вычисленная ступень ложится на ближайшую пятёрку', () => {
+    // 63 и 81 — это 63 % и 81 % от сотни; грубый шаг доводит их до блинов.
     const p = prescribe({
       sets: 1,
       grid: bar,
       repMin: 5,
       repMax: 6,
-      leadKg: [63, 81],
+      leadPercents: [0.63, 0.81],
       lastSessionSets: sets([100, 5, 'on_target']),
       daysSinceMuscle: 7,
       painRecent: false,
@@ -696,6 +766,24 @@ describe('грубый шаг для подводящих', () => {
     assert.deepEqual(
       p.sets.map((s) => s.weight.weight),
       [65, 80, 100],
+    )
+  })
+
+  it('а названная руками ступень остаётся как названа', () => {
+    const p = prescribe({
+      sets: 1,
+      grid: bar,
+      repMin: 5,
+      repMax: 6,
+      leadKg: [62.5, 82.5],
+      lastSessionSets: sets([100, 5, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.map((s) => s.weight.weight),
+      [62.5, 82.5, 100],
+      'мелкий шаг железки это позволяет — грубый нужен только вычислениям',
     )
   })
 

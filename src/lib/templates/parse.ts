@@ -53,6 +53,45 @@ export function leadKgToInput(values: number[] | null | undefined): string {
   return (values ?? []).join(', ')
 }
 
+/** Подводка по умолчанию, когда режим выбран, а числа не названы. */
+export const DEFAULT_LEAD_PERCENTS = [0.6, 0.8]
+
+/**
+ * Разбор поля подводки: строка + режим -> то, что ляжет в упражнение.
+ * Проценты вводятся как 60 и 80, а хранятся долями — так их и считает движок.
+ */
+export function leadFrom(
+  input: string,
+  mode: string,
+): { leadKg: number[] | null; leadPercents: number[] | null; error?: string } {
+  const empty = { leadKg: null, leadPercents: null }
+  if (mode !== 'kg' && mode !== 'percent') return empty
+
+  const { values, error } = leadKgFromInput(input)
+  if (error) return { ...empty, error }
+  if (!values) {
+    return mode === 'percent' ? { ...empty, leadPercents: DEFAULT_LEAD_PERCENTS } : empty
+  }
+
+  if (mode === 'kg') return { ...empty, leadKg: values }
+
+  if (values.some((v) => v <= 0 || v >= 100)) {
+    return { ...empty, error: 'Проценты должны быть от 1 до 99: например 60, 80' }
+  }
+  return { ...empty, leadPercents: values.map((v) => Math.round(v * 10) / 1000) }
+}
+
+/** Подводка обратно в строку поля: проценты показываются как 60, 80. */
+export function leadToInput(
+  item: { leadKg: number[] | null; leadPercents: number[] | null } | null | undefined,
+): string {
+  if (item?.leadKg?.length) return leadKgToInput(item.leadKg)
+  if (item?.leadPercents?.length) {
+    return item.leadPercents.map((p) => Math.round(p * 1000) / 10).join(', ')
+  }
+  return ''
+}
+
 /**
  * Буфер под целевыми повторами.
  *

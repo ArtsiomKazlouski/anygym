@@ -115,6 +115,8 @@ export async function allExercises(userId: string) {
       name: exercises.name,
       muscleGroup: exercises.muscleGroup,
       targetReps: exercises.targetReps,
+      leadKg: exercises.leadKg,
+      leadPercents: exercises.leadPercents,
       modelId: equipmentModels.id,
       modelName: equipmentModels.name,
       modelKind: equipmentModels.kind,
@@ -185,6 +187,8 @@ export async function equipmentCard(userId: string, modelId: string) {
         name: exercises.name,
         muscleGroup: exercises.muscleGroup,
         targetReps: exercises.targetReps,
+        leadKg: exercises.leadKg,
+        leadPercents: exercises.leadPercents,
       })
       .from(exercises)
       .where(and(eq(exercises.equipmentModelId, modelId), eq(exercises.isActive, true)))
