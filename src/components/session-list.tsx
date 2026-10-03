@@ -26,13 +26,9 @@ function plural(n: number, one: string, few: string, many: string) {
 
 export function SessionRow({ row, primary }: { row: Row; primary?: boolean }) {
   const live = row.endedAt == null
-  const meta = [
-    row.gymName,
-    row.templateName,
-    `${row.sets} ${plural(row.sets, 'подход', 'подхода', 'подходов')}`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const sets = `${row.sets} ${plural(row.sets, 'подход', 'подхода', 'подходов')}`
+  const where = [row.gymName, row.templateName].filter(Boolean).join(' · ')
+  const meta = [where, sets].join(' · ')
 
   if (primary) {
     return (
@@ -59,12 +55,16 @@ export function SessionRow({ row, primary }: { row: Row; primary?: boolean }) {
       className="flex items-baseline justify-between gap-3 rounded-xl px-2 py-2 transition duration-75 hover:bg-black/5 active:scale-[0.97] active:bg-black/10 dark:hover:bg-white/10 dark:active:bg-white/15"
     >
       <span className="shrink-0 text-sm tabular-nums">{dayFormat.format(row.startedAt)}</span>
+      {/* Зал и план обрезаются, число подходов — нет: названия повторяются
+          из строки в строку, а объём это то единственное, ради чего в список
+          и смотрят. Раньше truncate срезал именно его. */}
       <span className="min-w-0 flex-1 truncate text-right text-xs opacity-50">
         {live && (
           <span className="text-emerald-600 dark:text-emerald-400">не завершена · </span>
         )}
-        {meta}
+        {where}
       </span>
+      <span className="shrink-0 text-xs tabular-nums opacity-50">{sets}</span>
     </Link>
   )
 }

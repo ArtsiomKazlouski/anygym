@@ -13,13 +13,13 @@ const SECTIONS = [
 
 export function AppNav({ current }: { current: string }) {
   return (
-    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 text-sm">
+    <nav className="-mx-1 flex gap-0.5 overflow-x-auto px-1 text-sm">
       {SECTIONS.map((s) => (
         <Link
           key={s.href}
           href={s.href}
           className={
-            'shrink-0 rounded-full px-3 py-1.5 transition duration-75 active:scale-95 ' +
+            'shrink-0 rounded-full px-2.5 py-1.5 transition duration-75 active:scale-95 ' +
             (s.href === current
               ? 'bg-black text-white dark:bg-white dark:text-black'
               : 'opacity-50')
