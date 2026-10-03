@@ -14,6 +14,7 @@ import {
 import { MuscleSelect } from '@/components/muscle-select'
 import { LeadInField } from '@/components/lead-in-field'
 import { muscleTitle } from '@/lib/muscles'
+import { unitsLabel } from '@/lib/units'
 
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
@@ -65,7 +66,7 @@ export default async function ExercisesPage() {
                 <span className="shrink-0 text-right text-sm tabular-nums opacity-60">
                   {last && (
                     <span className="block">
-                      {last.weight} {last.units}
+                      {last.weight} {unitsLabel(last.units)}
                     </span>
                   )}
                   <span className="block text-xs opacity-70">{e.targetReps} повт</span>
@@ -100,7 +101,7 @@ export default async function ExercisesPage() {
                     <>
                       Сейчас по истории:{' '}
                       <b>
-                        {last.weight} {last.units}
+                        {last.weight} {unitsLabel(last.units)}
                       </b>
                       , {day.format(last.at)}. Стартовый вес больше не используется — движок
                       ведёт по записям.

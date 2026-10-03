@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { setLogs } from '@/db/schema'
 import { gridOptions } from '@/lib/engine'
+import { unitsLabel } from '@/lib/units'
 import type { ItemPlan } from '@/lib/session/plan'
 import { SubmitButton } from '@/components/submit-button'
 import {
@@ -231,7 +232,7 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
             return (
               <li key={s.id} className="flex items-center gap-2 text-sm">
                 <span className="w-24 shrink-0 tabular-nums opacity-70">
-                  {s.weight} {s.units}
+                  {s.weight} {unitsLabel(s.units)}
                 </span>
                 <span className="shrink-0 tabular-nums opacity-70">{s.reps} повт</span>
                 <span className="min-w-0 flex-1 truncate text-xs opacity-45">
@@ -356,7 +357,8 @@ function SetForm({
       <div className="flex items-end gap-3">
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-xs opacity-50">
-            Вес, {units} · <span className="whitespace-nowrap">{ROLE_LABEL[role]}</span>
+            Вес, {unitsLabel(units)} ·{' '}
+            <span className="whitespace-nowrap">{ROLE_LABEL[role]}</span>
           </span>
           {weights.length > 0 ? (
             <select
