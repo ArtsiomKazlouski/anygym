@@ -115,6 +115,36 @@ describe('межсессионная прогрессия', () => {
     assert.equal(interSessionDelta(sets([50, 6, 'easy'], [50, 11, 'on_target']), 8, 12), 0)
   })
 
+  it('судит подход на опорном весе, а не на том, с которого начали', () => {
+    // Живой случай: жим узким хватом 24 сентября. 90x9 при цели 8 подняли вес
+    // до 95 прямо в тренировке, на 95 вышло 7. Приложение предложило 100,
+    // потому что девятку видело на девяноста: опорный вес брало из последнего
+    // подхода, а решение — из первого. Прибавка начислялась дважды.
+    const sets24 = sets([90, 9, 'on_target'], [95, 7, 'on_target'], [95, 6, 'limit'])
+    assert.equal(baseFromLastSession(sets24), 95)
+    assert.equal(interSessionDelta(sets24, 6, 8), 0, 'на 95 вышло 7 при цели 8 — держим')
+
+    const p = prescribe({
+      grid: { units: 'kg', step: 5, rampStep: 20, barWeight: 20, max: 200 },
+      repMin: 6,
+      repMax: 8,
+      sets: 3,
+      lastSessionSets: sets24,
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.equal(p.top?.weight, 95, 'а не 100')
+  })
+
+  it('рост внутри тренировки не отменяет прибавку, если он закрепился', () => {
+    // Разведка: вес лез вверх по фидбеку «легко» и на верхней ступени
+    // диапазон всё-таки закрылся. Значит прибавка заслужена — но считается
+    // она от того веса, на котором закрылась.
+    const climb = sets([24, 12, 'easy'], [30, 12, 'easy'], [36, 12, 'on_target'])
+    assert.equal(baseFromLastSession(climb), 36)
+    assert.equal(interSessionDelta(climb, 10, 12), 1)
+  })
+
   it('переносит рост, случившийся внутри сессии', () => {
     // 50 -> 55 по фидбеку 'легко'; финальный провал не должен опускать базу дважды.
     assert.equal(baseFromLastSession(sets([50, 12, 'easy'], [55, 9, 'on_target'])), 55)
