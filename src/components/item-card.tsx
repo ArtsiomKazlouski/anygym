@@ -207,8 +207,8 @@ export function ItemCard({ row, logged, isCurrent, plan, models, muscleTitle }: 
 
       {models.length === 0 && !item.equipmentModelId && (
         <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs opacity-80">
-          В этом зале такой тренажёр не заведён. Добавь его в «Залах» — тогда появится и вес, и
-          история по нему. Пока можно записать подходы, выбрав тренажёр там.
+          В этом зале такой тренажёр не заведён — поэтому нет ни веса, ни истории по нему.
+          Заведи его в «Залах», и упражнение заработает здесь так же, как в другом зале.
         </p>
       )}
 
@@ -333,7 +333,9 @@ export function ItemCard({ row, logged, isCurrent, plan, models, muscleTitle }: 
             {!item.exerciseId
               ? 'Упражнение удалено из каталога — записывать некуда.'
               : !item.equipmentModelId
-                ? 'Выбери, на каком тренажёре делаешь.'
+                ? models.length > 0
+                  ? 'Выбери, на каком тренажёре делаешь.'
+                  : ''
                 : logged.length > 0
                   ? `Все подходы записаны — ${logged.length} из ${item.targetSets}.`
                   : 'Подходов в плане нет.'}

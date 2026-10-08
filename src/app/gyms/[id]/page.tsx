@@ -86,7 +86,9 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
                   className="min-w-0 flex-1 rounded-xl py-1 transition duration-75 active:scale-[0.98]"
                 >
                   <div className="truncate text-sm font-medium">{model.name}</div>
-                  <div className="truncate text-xs opacity-35">{typeName}</div>
+                  {typeName !== model.name && (
+                    <div className="truncate text-xs opacity-35">{typeName}</div>
+                  )}
                   <div className="text-xs opacity-45">
                     {ladder?.length
                       ? `ряд из ${ladder.length}`
