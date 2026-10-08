@@ -138,8 +138,42 @@ export const authVerificationTokens = pgTable(
  * ------------------------------------------------------------------ */
 
 /**
- * Модель железки — то, что пользователь узнаёт в лицо.
- * Прогрессия висит здесь, а не на зале: одна модель может стоять в трёх залах.
+ * Тип тренажёра: передний блок, верхний блок, гантели, штанга.
+ *
+ * То, что человек называет, когда говорит, на чём делает упражнение, —
+ * и то, что есть почти в каждом зале, пусть и в разном исполнении.
+ * Упражнение привязано сюда, а не к конкретной железке.
+ *
+ * Пока упражнение держалось за железку, один и тот же передний блок в двух
+ * залах давал два упражнения с одним названием и двумя разорванными историями.
+ * План может содержать только одно из них, поэтому во втором зале упражнение
+ * не появлялось вовсе.
+ *
+ * Список один на все залы, но свой у каждого пользователя: набор железа —
+ * вещь живая, и дописывать в него придётся.
+ */
+export const equipmentTypes = pgTable(
+  'equipment_type',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Чем задаётся вес. У всех исполнений типа он одинаковый. */
+    kind: equipmentKind('kind').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('equipment_type_unique').on(t.userId, t.name)],
+)
+
+/**
+ * Исполнение типа — конкретная железка, которую пользователь узнаёт в лицо.
+ *
+ * У двух передних блоков одного типа разный рычаг и разный грузоблок, поэтому
+ * числа на них несравнимы: вес живёт здесь, а не на типе. Одно исполнение может
+ * стоять в нескольких залах, если это буквально та же машина, — олимпийская
+ * штанга так и работает, и история по ней переносится между залами.
  */
 export const equipmentModels = pgTable(
   'equipment_model',
@@ -148,9 +182,11 @@ export const equipmentModels = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => authUsers.id, { onDelete: 'cascade' }),
+    typeId: uuid('type_id')
+      .notNull()
+      .references(() => equipmentTypes.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     brand: text('brand'),
-    kind: equipmentKind('kind').notNull(),
     units: weightUnits('units').notNull().default('kg'),
     /** Шаг дискретизации для stack / plate_loaded / cable. */
     step: numeric('step', { precision: 7, scale: 2, mode: 'number' }),
@@ -188,7 +224,10 @@ export const equipmentModels = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('equipment_model_user_idx').on(t.userId)],
+  (t) => [
+    index('equipment_model_user_idx').on(t.userId),
+    index('equipment_model_type_idx').on(t.typeId),
+  ],
 )
 
 export const gyms = pgTable('gym', {
@@ -303,9 +342,13 @@ export const exercises = pgTable(
      * заменой упражнений группа не занимается, для этого она слишком груба.
      */
     muscleGroup: muscleGroup('muscle_group').notNull(),
-    equipmentModelId: uuid('equipment_model_id')
+    /**
+     * На чём делается — тип, а не конкретная железка. Какая именно машина
+     * сегодня, выбирается в тренировке: их в зале может быть несколько.
+     */
+    equipmentTypeId: uuid('equipment_type_id')
       .notNull()
-      .references(() => equipmentModels.id, { onDelete: 'cascade' }),
+      .references(() => equipmentTypes.id, { onDelete: 'cascade' }),
     /**
      * Целевые повторы — свойство упражнения, а не плана.
      * «Тяга гантелей — двенадцать» верно в любом плане и в любом зале;
@@ -333,7 +376,7 @@ export const exercises = pgTable(
   },
   (t) => [
     index('exercise_user_muscle_idx').on(t.userId, t.muscleGroup),
-    index('exercise_model_idx').on(t.equipmentModelId),
+    index('exercise_type_idx').on(t.equipmentTypeId),
   ],
 )
 
@@ -426,6 +469,16 @@ export const sessionItems = pgTable(
     }),
     /** null остаётся возможным: упражнение могли удалить из каталога. */
     exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+    /**
+     * На каком исполнении делалось сегодня. По этой паре — упражнение плюс
+     * исполнение — и считается история: пятьдесят на лёгком рычаге и пятьдесят
+     * на тяжёлом несравнимы, слипаться им нельзя.
+     *
+     * null, пока не выбрано: в зале с одним исполнением выбор проставляется сам.
+     */
+    equipmentModelId: uuid('equipment_model_id').references(() => equipmentModels.id, {
+      onDelete: 'set null',
+    }),
     status: sessionItemStatus('status').notNull().default('pending'),
     targetSets: integer('target_sets').notNull(),
     repMin: integer('rep_min').notNull(),

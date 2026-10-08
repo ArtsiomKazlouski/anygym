@@ -13,7 +13,7 @@ import {
   renameGym,
   unlinkEquipment,
 } from '@/lib/equipment/actions'
-import { gymWithEquipment } from '@/lib/equipment/queries'
+import { allTypes, gymWithEquipment } from '@/lib/equipment/queries'
 
 export default async function GymPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -21,7 +21,7 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const data = await gymWithEquipment(userId, id)
+  const [data, types] = await Promise.all([gymWithEquipment(userId, id), allTypes(userId)])
   if (!data) redirect('/gyms')
 
   return (
@@ -62,7 +62,7 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
         {data.equipment.length === 0 && (
           <p className="text-sm opacity-50">Оборудования пока нет.</p>
         )}
-        {data.equipment.map(({ link, model, exercises }) => {
+        {data.equipment.map(({ link, model, exercises, typeName, kind }) => {
           const ladder = link.ladderOverride ?? model.ladder
           const step = link.stepOverride ?? model.step
           return (
@@ -79,13 +79,14 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
                     className="size-12 shrink-0 rounded-lg object-cover"
                   />
                 ) : (
-                  <EquipmentThumb kind={model.kind} className="size-12 shrink-0" />
+                  <EquipmentThumb kind={kind} className="size-12 shrink-0" />
                 )}
                 <Link
                   href={`/equipment/${model.id}`}
                   className="min-w-0 flex-1 rounded-xl py-1 transition duration-75 active:scale-[0.98]"
                 >
                   <div className="truncate text-sm font-medium">{model.name}</div>
+                  <div className="truncate text-xs opacity-35">{typeName}</div>
                   <div className="text-xs opacity-45">
                     {ladder?.length
                       ? `ряд из ${ladder.length}`
@@ -153,7 +154,12 @@ export default async function GymPage({ params }: { params: Promise<{ id: string
       <details className="rounded-2xl border border-dashed border-black/15 px-4 py-3 dark:border-white/20">
         <summary className="cursor-pointer text-sm opacity-60">Новый тренажёр</summary>
         <div className="mt-3">
-          <EquipmentForm action={createEquipment} gymId={data.gym.id} submitLabel="Создать" />
+          <EquipmentForm
+            action={createEquipment}
+            types={types}
+            gymId={data.gym.id}
+            submitLabel="Создать"
+          />
         </div>
       </details>
 

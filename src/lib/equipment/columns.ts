@@ -11,9 +11,9 @@ import { equipmentModels } from '@/db/schema'
 export const MODEL_COLUMNS = {
   id: equipmentModels.id,
   userId: equipmentModels.userId,
+  typeId: equipmentModels.typeId,
   name: equipmentModels.name,
   brand: equipmentModels.brand,
-  kind: equipmentModels.kind,
   units: equipmentModels.units,
   step: equipmentModels.step,
   rampStep: equipmentModels.rampStep,

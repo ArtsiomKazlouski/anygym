@@ -3,6 +3,7 @@ import { db } from '@/db'
 import {
   equipmentModels,
   equipmentSetups,
+  equipmentTypes,
   exercises,
   gymEquipment,
   gyms,
@@ -94,17 +95,35 @@ export async function exercisesPerMuscle(userId: string) {
   return new Map(rows.map((r) => [r.muscleGroup as string, r.n]))
 }
 
-/** Всё оборудование пользователя — для выбора при заведении упражнения. */
+/** Типы тренажёров — то, на чём делается упражнение. Один список на все залы. */
+export async function allTypes(userId: string) {
+  return db
+    .select({
+      id: equipmentTypes.id,
+      name: equipmentTypes.name,
+      kind: equipmentTypes.kind,
+      models: sql<number>`count(${equipmentModels.id})::int`,
+    })
+    .from(equipmentTypes)
+    .leftJoin(equipmentModels, eq(equipmentModels.typeId, equipmentTypes.id))
+    .where(eq(equipmentTypes.userId, userId))
+    .groupBy(equipmentTypes.id)
+    .orderBy(equipmentTypes.name)
+}
+
+/** Все исполнения пользователя — для выбора, куда заводить новую железку. */
 export async function allEquipment(userId: string) {
   return db
     .select({
       id: equipmentModels.id,
       name: equipmentModels.name,
-      kind: equipmentModels.kind,
+      typeName: equipmentTypes.name,
+      kind: equipmentTypes.kind,
     })
     .from(equipmentModels)
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, equipmentModels.typeId))
     .where(eq(equipmentModels.userId, userId))
-    .orderBy(equipmentModels.name)
+    .orderBy(equipmentTypes.name, equipmentModels.name)
 }
 
 /** Весь каталог упражнений: цель повторов правится здесь. */
@@ -117,12 +136,12 @@ export async function allExercises(userId: string) {
       targetReps: exercises.targetReps,
       leadKg: exercises.leadKg,
       leadPercents: exercises.leadPercents,
-      modelId: equipmentModels.id,
-      modelName: equipmentModels.name,
-      modelKind: equipmentModels.kind,
+      typeId: equipmentTypes.id,
+      typeName: equipmentTypes.name,
+      typeKind: equipmentTypes.kind,
     })
     .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, exercises.equipmentTypeId))
     .where(and(eq(exercises.userId, userId), eq(exercises.isActive, true)))
     .orderBy(exercises.name)
 }
@@ -138,15 +157,18 @@ export async function gymWithEquipment(userId: string, gymId: string) {
     .select({
       link: gymEquipment,
       model: MODEL_COLUMNS,
+      typeName: equipmentTypes.name,
+      kind: equipmentTypes.kind,
       exercises: sql<number>`(
         select count(*)::int from ${exercises}
-        where ${exercises.equipmentModelId} = ${equipmentModels.id} and ${exercises.isActive}
+        where ${exercises.equipmentTypeId} = ${equipmentTypes.id} and ${exercises.isActive}
       )`,
     })
     .from(gymEquipment)
     .innerJoin(equipmentModels, eq(equipmentModels.id, gymEquipment.equipmentModelId))
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, equipmentModels.typeId))
     .where(and(eq(gymEquipment.gymId, gymId), eq(gymEquipment.isActive, true)))
-    .orderBy(equipmentModels.name)
+    .orderBy(equipmentTypes.name, equipmentModels.name)
 
   const linkedIds = new Set(equipment.map((e) => e.model.id))
   const others = (
@@ -154,25 +176,29 @@ export async function gymWithEquipment(userId: string, gymId: string) {
       .select({
         id: equipmentModels.id,
         name: equipmentModels.name,
-        kind: equipmentModels.kind,
+        kind: equipmentTypes.kind,
+        typeName: equipmentTypes.name,
         notes: equipmentModels.notes,
         updatedAt: equipmentModels.updatedAt,
         hasPhoto: sql<boolean>`${equipmentModels.photo} is not null`,
       })
       .from(equipmentModels)
+      .innerJoin(equipmentTypes, eq(equipmentTypes.id, equipmentModels.typeId))
       .where(eq(equipmentModels.userId, userId))
-      .orderBy(equipmentModels.name)
+      .orderBy(equipmentTypes.name, equipmentModels.name)
   ).filter((m) => !linkedIds.has(m.id))
 
   return { gym, equipment, others }
 }
 
 export async function equipmentCard(userId: string, modelId: string) {
-  const [model] = await db
-    .select(MODEL_COLUMNS)
+  const [row] = await db
+    .select({ model: MODEL_COLUMNS, type: equipmentTypes })
     .from(equipmentModels)
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, equipmentModels.typeId))
     .where(and(eq(equipmentModels.id, modelId), eq(equipmentModels.userId, userId)))
-  if (!model) return null
+  if (!row) return null
+  const { model, type } = row
 
   const [inGyms, onIt, setups] = await Promise.all([
     db
@@ -181,6 +207,8 @@ export async function equipmentCard(userId: string, modelId: string) {
       .innerJoin(gyms, eq(gyms.id, gymEquipment.gymId))
       .where(and(eq(gymEquipment.equipmentModelId, modelId), eq(gymEquipment.isActive, true)))
       .orderBy(gyms.name),
+    // Упражнения привязаны к типу, а не к этой железке: на карточке показываем
+    // всё, что на таком типе делается, — на ней это и будет делаться.
     db
       .select({
         id: exercises.id,
@@ -191,7 +219,7 @@ export async function equipmentCard(userId: string, modelId: string) {
         leadPercents: exercises.leadPercents,
       })
       .from(exercises)
-      .where(and(eq(exercises.equipmentModelId, modelId), eq(exercises.isActive, true)))
+      .where(and(eq(exercises.equipmentTypeId, type.id), eq(exercises.isActive, true)))
       .orderBy(exercises.name),
     db
       .select()
@@ -203,5 +231,5 @@ export async function equipmentCard(userId: string, modelId: string) {
 
   // Настройка на модель вообще; переопределения на конкретный зал — отдельно.
   const setup = setups.find((s) => s.gymEquipmentId == null) ?? null
-  return { model, inGyms, exercises: onIt, setup }
+  return { model, type, inGyms, exercises: onIt, setup }
 }

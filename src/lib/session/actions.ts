@@ -19,6 +19,28 @@ import type { MuscleCode } from '@/lib/muscles'
 import { leadFrom, rangeFromTarget } from '@/lib/templates/parse'
 import { resolveGrid } from './grid'
 
+/**
+ * Единственное исполнение типа, стоящее в этом зале, — или null, если его там
+ * нет вовсе либо их несколько.
+ *
+ * Когда исполнение одно, выбирать нечего и спрашивать не о чем: ставим сразу.
+ * Когда их два, выбор делается в зале, глядя на машину, — приложение угадать
+ * не может и не пытается.
+ */
+async function soleModelInGym(exerciseId: string, gymId: string): Promise<string | null> {
+  const rows = await db
+    .select({ id: equipmentModels.id })
+    .from(exercises)
+    .innerJoin(equipmentModels, eq(equipmentModels.typeId, exercises.equipmentTypeId))
+    .innerJoin(
+      gymEquipment,
+      and(eq(gymEquipment.equipmentModelId, equipmentModels.id), eq(gymEquipment.gymId, gymId)),
+    )
+    .where(and(eq(exercises.id, exerciseId), eq(gymEquipment.isActive, true)))
+    .limit(2)
+  return rows.length === 1 ? rows[0].id : null
+}
+
 async function requireUser() {
   const session = await auth()
   const id = session?.user?.id
@@ -60,12 +82,16 @@ export async function startSession(formData: FormData) {
       .orderBy(templateItems.position)
 
     if (items.length > 0) {
+      const models = await Promise.all(
+        items.map(({ item }) => soleModelInGym(item.exerciseId, gymId)),
+      )
       await db.insert(sessionItems).values(
-        items.map(({ item, targetReps }) => ({
+        items.map(({ item, targetReps }, i) => ({
           sessionId: session.id,
           position: item.position,
           templateItemId: item.id,
           exerciseId: item.exerciseId,
+          equipmentModelId: models[i],
           targetSets: item.sets,
           ...rangeFromTarget(targetReps ?? DEFAULT_TARGET_REPS),
         })),
@@ -76,11 +102,42 @@ export async function startSession(formData: FormData) {
   redirect(`/session/${session.id}`)
 }
 
+/**
+ * Выбор исполнения, на котором делаем сегодня.
+ *
+ * Запирается после первого подхода — как когда-то выбор упражнения: подходы,
+ * записанные на одну машину, не должны оказаться приписаны другой. Чтобы
+ * передумать, надо удалить записанное.
+ */
+export async function pickModel(formData: FormData) {
+  const userId = await requireUser()
+  const itemId = String(formData.get('itemId') ?? '')
+  const equipmentModelId = String(formData.get('equipmentModelId') ?? '')
+  if (!equipmentModelId) throw new Error('Не выбран тренажёр')
+  const { item } = await ownedItem(userId, itemId)
+
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(setLogs)
+    .where(eq(setLogs.sessionItemId, item.id))
+  if (n > 0) {
+    throw new Error('Подходы уже записаны — удали их, если нужно сменить тренажёр')
+  }
+
+  await db
+    .update(sessionItems)
+    .set({ equipmentModelId, status: 'active' })
+    .where(eq(sessionItems.id, item.id))
+
+  revalidatePath(`/session/${item.sessionId}`)
+}
+
 export async function logSet(formData: FormData) {
   const userId = await requireUser()
   const itemId = String(formData.get('itemId') ?? '')
   const { item, session } = await ownedItem(userId, itemId)
   if (!item.exerciseId) throw new Error('Упражнение не выбрано')
+  if (!item.equipmentModelId) throw new Error('Не выбрано, на чём делаешь')
 
   const kind = String(formData.get('kind') ?? 'working') as 'warmup' | 'ramp' | 'working'
   const weight = Number(formData.get('weight'))
@@ -94,23 +151,19 @@ export async function logSet(formData: FormData) {
   if (!Number.isFinite(weight) || weight < 0) throw new Error('Некорректный вес')
   if (!Number.isFinite(reps) || reps <= 0) throw new Error('Некорректные повторы')
 
-  const [exercise] = await db
-    .select({ model: equipmentModels })
-    .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
-    .where(eq(exercises.id, item.exerciseId))
+  const [model] = await db
+    .select()
+    .from(equipmentModels)
+    .where(eq(equipmentModels.id, item.equipmentModelId))
 
   const [instance] = await db
     .select()
     .from(gymEquipment)
     .where(
-      and(
-        eq(gymEquipment.gymId, session.gymId),
-        eq(gymEquipment.equipmentModelId, exercise.model.id),
-      ),
+      and(eq(gymEquipment.gymId, session.gymId), eq(gymEquipment.equipmentModelId, model.id)),
     )
 
-  const grid = resolveGrid(exercise.model, instance)
+  const grid = resolveGrid(model, instance)
 
   const [{ next }] = await db
     .select({ next: sql<number>`coalesce(max(${setLogs.position}), -1) + 1` })
@@ -187,6 +240,7 @@ export async function addSessionItem(formData: FormData) {
     sessionId,
     position: max + 1,
     exerciseId: exercise.id,
+    equipmentModelId: await soleModelInGym(exercise.id, session.gymId),
     targetSets: DEFAULT_SETS,
     ...rangeFromTarget(exercise.targetReps ?? DEFAULT_TARGET_REPS),
   })
@@ -205,11 +259,11 @@ export async function createExerciseAndAdd(formData: FormData) {
   const sessionId = String(formData.get('sessionId') ?? '')
   const name = String(formData.get('name') ?? '').trim()
   const muscleGroup = String(formData.get('muscleGroup') ?? '') as MuscleCode
-  const equipmentModelId = String(formData.get('equipmentModelId') ?? '')
+  const equipmentTypeId = String(formData.get('equipmentTypeId') ?? '')
 
   if (!name) throw new Error('Нужно название упражнения')
-  if (!muscleGroup || !equipmentModelId) {
-    throw new Error('Не выбраны мышечная группа или тренажёр')
+  if (!muscleGroup || !equipmentTypeId) {
+    throw new Error('Не выбраны мышечная группа или тип тренажёра')
   }
 
   const lead = leadFrom(
@@ -225,7 +279,7 @@ export async function createExerciseAndAdd(formData: FormData) {
       userId,
       name,
       muscleGroup,
-      equipmentModelId,
+      equipmentTypeId,
       targetReps: Number.isFinite(targetReps) && targetReps > 0 ? Math.round(targetReps) : 12,
       leadKg: lead.leadKg,
       leadPercents: lead.leadPercents,

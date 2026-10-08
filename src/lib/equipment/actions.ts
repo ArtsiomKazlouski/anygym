@@ -5,7 +5,14 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { db } from '@/db'
-import { equipmentModels, equipmentSetups, exercises, gymEquipment, gyms } from '@/db/schema'
+import {
+  equipmentModels,
+  equipmentSetups,
+  equipmentTypes,
+  exercises,
+  gymEquipment,
+  gyms,
+} from '@/db/schema'
 import type { MuscleCode } from '@/lib/muscles'
 import { leadFrom } from '@/lib/templates/parse'
 import { parseLadder } from './ladder'
@@ -92,15 +99,42 @@ function gridFrom(formData: FormData) {
   }
 }
 
+/** Новый тип тренажёра. Список один на все залы, поэтому заводится отдельно. */
+export async function createType(formData: FormData) {
+  const userId = await requireUser()
+  const name = str(formData, 'name')
+  const kind = str(formData, 'kind')
+  if (!name || !kind) throw new Error('Нужны название и чем задаётся вес')
+
+  await db.insert(equipmentTypes).values({ userId, name, kind: kind as never })
+  revalidatePath('/equipment')
+  revalidatePath('/gyms')
+}
+
+export async function renameType(formData: FormData) {
+  const userId = await requireUser()
+  const id = str(formData, 'typeId')
+  const name = str(formData, 'name')
+  if (!name) throw new Error('Нужно название типа')
+
+  await db
+    .update(equipmentTypes)
+    .set({ name })
+    .where(and(eq(equipmentTypes.id, id), eq(equipmentTypes.userId, userId)))
+  revalidatePath('/equipment')
+}
+
 export async function createEquipment(formData: FormData) {
   const userId = await requireUser()
   const gymId = str(formData, 'gymId')
   const name = str(formData, 'name')
+  const typeId = str(formData, 'typeId')
   if (!name) throw new Error('Нужно название тренажёра')
+  if (!typeId) throw new Error('Нужно выбрать тип тренажёра')
 
   const [model] = await db
     .insert(equipmentModels)
-    .values({ userId, name, ...gridFrom(formData) })
+    .values({ userId, name, typeId, ...gridFrom(formData) })
     .returning()
 
   if (gymId) {
@@ -298,10 +332,12 @@ export async function deletePhoto(formData: FormData) {
 
 export async function createExerciseOn(formData: FormData) {
   const userId = await requireUser()
-  const equipmentModelId = str(formData, 'modelId')
+  const equipmentTypeId = str(formData, 'equipmentTypeId')
+  const backTo = str(formData, 'modelId')
   const name = str(formData, 'name')
   const muscleGroup = str(formData, 'muscleGroup') as MuscleCode
   if (!name || !muscleGroup) throw new Error('Нужны название и мышечная группа')
+  if (!equipmentTypeId) throw new Error('Нужно выбрать тип тренажёра')
 
   const lead = leadFrom(str(formData, 'lead'), str(formData, 'leadMode'))
   if (lead.error) throw new Error(lead.error)
@@ -310,12 +346,12 @@ export async function createExerciseOn(formData: FormData) {
     userId,
     name,
     muscleGroup,
-    equipmentModelId,
+    equipmentTypeId,
     targetReps: Math.round(num(formData, 'targetReps') ?? 12),
     leadKg: lead.leadKg,
     leadPercents: lead.leadPercents,
   })
-  revalidatePath(`/equipment/${equipmentModelId}`)
+  if (backTo) revalidatePath(`/equipment/${backTo}`)
   revalidatePath('/exercises')
 }
 

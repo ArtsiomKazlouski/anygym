@@ -3,6 +3,7 @@ import { db } from '@/db'
 import {
   equipmentModels,
   equipmentSetups,
+  equipmentTypes,
   exercises,
   gymEquipment,
   gyms,
@@ -70,17 +71,18 @@ export async function recentSessions(userId: string, limit = 10) {
     .limit(limit)
 }
 
-/** Все упражнения пользователя, чья железка есть в этом зале. */
+/** Упражнения, чей тип тренажёра представлен в этом зале хоть одним исполнением. */
 export async function exercisesInGym(userId: string, gymId: string) {
   return db
-    .select({
+    .selectDistinct({
       id: exercises.id,
       name: exercises.name,
       muscleGroup: exercises.muscleGroup,
-      modelName: equipmentModels.name,
+      modelName: equipmentTypes.name,
     })
     .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, exercises.equipmentTypeId))
+    .innerJoin(equipmentModels, eq(equipmentModels.typeId, equipmentTypes.id))
     .innerJoin(
       gymEquipment,
       and(eq(gymEquipment.equipmentModelId, equipmentModels.id), eq(gymEquipment.gymId, gymId)),
@@ -95,17 +97,49 @@ export async function exercisesInGym(userId: string, gymId: string) {
     .orderBy(exercises.name)
 }
 
-/** Оборудование этого зала — для заведения нового упражнения на месте. */
-export async function equipmentInGym(userId: string, gymId: string) {
+/** Типы тренажёров этого зала — для заведения нового упражнения на месте. */
+export async function typesInGym(userId: string, gymId: string) {
   return db
-    .select({ id: equipmentModels.id, name: equipmentModels.name })
+    .selectDistinct({ id: equipmentTypes.id, name: equipmentTypes.name })
     .from(gymEquipment)
     .innerJoin(equipmentModels, eq(equipmentModels.id, gymEquipment.equipmentModelId))
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, equipmentModels.typeId))
     .where(
       and(
         eq(gymEquipment.gymId, gymId),
         eq(gymEquipment.isActive, true),
+        eq(equipmentTypes.userId, userId),
+      ),
+    )
+    .orderBy(equipmentTypes.name)
+}
+
+/**
+ * Исполнения заданного типа, стоящие в этом зале.
+ *
+ * Из них человек выбирает, на чём делает сегодня: передних блоков в зале
+ * может быть два, и рычаг у них разный. Пустой ответ — тип в зале не заведён;
+ * экран это показывает и предлагает добавить.
+ */
+export async function modelsOfTypeInGym(userId: string, typeId: string, gymId: string) {
+  return db
+    .select({
+      id: equipmentModels.id,
+      name: equipmentModels.name,
+      updatedAt: equipmentModels.updatedAt,
+      hasPhoto: sql<boolean>`${equipmentModels.photo} is not null`,
+      locationNote: gymEquipment.locationNote,
+    })
+    .from(equipmentModels)
+    .innerJoin(
+      gymEquipment,
+      and(eq(gymEquipment.equipmentModelId, equipmentModels.id), eq(gymEquipment.gymId, gymId)),
+    )
+    .where(
+      and(
         eq(equipmentModels.userId, userId),
+        eq(equipmentModels.typeId, typeId),
+        eq(gymEquipment.isActive, true),
       ),
     )
     .orderBy(equipmentModels.name)
@@ -125,11 +159,15 @@ export async function equipmentInGym(userId: string, gymId: string) {
 export async function lastSessionSets(
   userId: string,
   exerciseId: string,
+  equipmentModelId: string,
   excludeSessionId?: string,
 ): Promise<{ sets: LoggedSet[]; at: Date | null }> {
   const where = and(
     eq(workoutSessions.userId, userId),
     eq(sessionItems.exerciseId, exerciseId),
+    // История по паре «упражнение + исполнение»: пятьдесят на лёгком рычаге
+    // и пятьдесят на тяжёлом — разные числа, слипаться им нельзя.
+    eq(sessionItems.equipmentModelId, equipmentModelId),
     eq(setLogs.kind, 'working'),
     excludeSessionId ? sql`${sessionItems.sessionId} <> ${excludeSessionId}` : undefined,
   )
@@ -153,6 +191,7 @@ export async function lastSessionSets(
       and(
         eq(sessionItems.sessionId, latest.sessionId),
         eq(sessionItems.exerciseId, exerciseId),
+        eq(sessionItems.equipmentModelId, equipmentModelId),
         eq(setLogs.kind, 'working'),
       ),
     )
@@ -264,10 +303,12 @@ export async function sessionWithItems(userId: string, sessionId: string) {
       item: sessionItems,
       templateItem: templateItems,
       exercise: exercises,
+      model: { id: equipmentModels.id, name: equipmentModels.name },
     })
     .from(sessionItems)
     .leftJoin(templateItems, eq(templateItems.id, sessionItems.templateItemId))
     .leftJoin(exercises, eq(exercises.id, sessionItems.exerciseId))
+    .leftJoin(equipmentModels, eq(equipmentModels.id, sessionItems.equipmentModelId))
     .where(eq(sessionItems.sessionId, sessionId))
     .orderBy(sessionItems.position)
 

@@ -52,6 +52,8 @@ export async function buildItemPlan(args: {
   gymId: string
   sessionId: string
   exerciseId: string
+  /** На каком исполнении делаем сегодня. Без него считать нечего. */
+  equipmentModelId: string
   sets: number
   repMin: number
   repMax: number
@@ -61,7 +63,7 @@ export async function buildItemPlan(args: {
   const [exercise] = await db
     .select({ ex: exercises, model: MODEL_COLUMNS })
     .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .innerJoin(equipmentModels, eq(equipmentModels.id, args.equipmentModelId))
     .where(and(eq(exercises.id, args.exerciseId), eq(exercises.userId, args.userId)))
   if (!exercise) return null
 
@@ -78,7 +80,7 @@ export async function buildItemPlan(args: {
   const grid = resolveGrid(exercise.model, instance)
 
   const [last, days, pain, setup] = await Promise.all([
-    lastSessionSets(args.userId, args.exerciseId, args.sessionId),
+    lastSessionSets(args.userId, args.exerciseId, args.equipmentModelId, args.sessionId),
     daysSinceMuscle(args.userId, exercise.ex.muscleGroup),
     painRecent(args.userId, args.exerciseId),
     setupFor(args.userId, exercise.model.id, instance?.id),

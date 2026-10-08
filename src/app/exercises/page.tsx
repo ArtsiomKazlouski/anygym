@@ -6,8 +6,8 @@ import { EquipmentIcon } from '@/components/equipment-icon'
 import { SubmitButton } from '@/components/submit-button'
 import { createExerciseOn, updateExercise } from '@/lib/equipment/actions'
 import {
-  allEquipment,
   allExercises,
+  allTypes,
   exercisesPerMuscle,
   lastWorkingSets,
 } from '@/lib/equipment/queries'
@@ -24,10 +24,10 @@ export default async function ExercisesPage() {
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [list, lastSets, equipment, counts] = await Promise.all([
+  const [list, lastSets, types, counts] = await Promise.all([
     allExercises(userId),
     lastWorkingSets(userId),
-    allEquipment(userId),
+    allTypes(userId),
     exercisesPerMuscle(userId),
   ])
   const day = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' })
@@ -56,11 +56,11 @@ export default async function ExercisesPage() {
               className="rounded-2xl border border-black/10 px-4 py-3 dark:border-white/15"
             >
               <summary className="flex cursor-pointer items-center gap-3">
-                <EquipmentIcon kind={e.modelKind} className="size-5 shrink-0 opacity-35" />
+                <EquipmentIcon kind={e.typeKind} className="size-5 shrink-0 opacity-35" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{e.name}</span>
                   <span className="block truncate text-xs opacity-45">
-                    {e.modelName} · {muscleTitle(e.muscleGroup)}
+                    {e.typeName} · {muscleTitle(e.muscleGroup)}
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-sm tabular-nums opacity-60">
@@ -79,10 +79,25 @@ export default async function ExercisesPage() {
                 className="mt-3 flex flex-col gap-2"
               >
                 <input type="hidden" name="exerciseId" value={e.id} />
-                <input type="hidden" name="modelId" value={e.modelId} />
                 <label className="flex flex-col gap-1">
                   <span className="text-xs opacity-55">Название</span>
                   <input name="name" required defaultValue={e.name} className={field} />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs opacity-55">На чём делается</span>
+                  <select
+                    name="equipmentTypeId"
+                    required
+                    defaultValue={e.typeId}
+                    className={field}
+                  >
+                    {types.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                        {t.models > 1 ? ` · ${t.models} исполнения` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <MuscleSelect counts={counts} defaultValue={e.muscleGroup} className={field} />
                 <label className="flex flex-col gap-1">
@@ -117,10 +132,10 @@ export default async function ExercisesPage() {
                   Сохранить
                 </SubmitButton>
                 <Link
-                  href={`/equipment/${e.modelId}`}
+                  href="/gyms"
                   className="text-center text-xs opacity-45 underline-offset-4 hover:underline"
                 >
-                  Тренажёр: настройки, сетка весов, фото
+                  Настройки, сетка весов и фото — у исполнения, в разделе «Залы»
                 </Link>
               </form>
             </details>
@@ -131,13 +146,14 @@ export default async function ExercisesPage() {
       <details className="rounded-2xl border border-dashed border-black/15 px-4 py-3 dark:border-white/20">
         <summary className="cursor-pointer text-sm opacity-60">Новое упражнение</summary>
 
-        {equipment.length === 0 ? (
+        {types.length === 0 ? (
           <p className="mt-3 text-sm opacity-50">
             Сначала нужен тренажёр —{' '}
             <Link href="/gyms" className="underline underline-offset-4">
               заведи его в разделе «Залы»
             </Link>
-            . Упражнение всегда делается на чём-то, и от железки зависит сетка весов.
+            . Упражнение привязано к типу тренажёра, а не к конкретной машине: какая именно
+            сегодня — выбирается в зале.
           </p>
         ) : (
           <form action={createExerciseOn} className="mt-3 flex flex-col gap-2">
@@ -152,13 +168,14 @@ export default async function ExercisesPage() {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-xs opacity-55">На чём делается</span>
-              <select name="modelId" required defaultValue="" className={field}>
+              <select name="equipmentTypeId" required defaultValue="" className={field}>
                 <option value="" disabled>
-                  выбери тренажёр
+                  выбери тип тренажёра
                 </option>
-                {equipment.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
+                {types.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.models > 1 ? ` · ${t.models} исполнения` : ''}
                   </option>
                 ))}
               </select>

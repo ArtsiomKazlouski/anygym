@@ -4,9 +4,17 @@
  *
  * Запуск: npm run dry-run
  */
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.ts'
-import { authUsers, exercises, gyms, templateItems, templates } from '../src/db/schema.ts'
+import {
+  authUsers,
+  equipmentModels,
+  exercises,
+  gymEquipment,
+  gyms,
+  templateItems,
+  templates,
+} from '../src/db/schema.ts'
 import { rangeFromTarget } from '../src/lib/templates/parse.ts'
 import { buildItemPlan } from '../src/lib/session/plan.ts'
 import { muscleTitle } from '../src/lib/muscles.ts'
@@ -26,11 +34,29 @@ console.log(`Зал: ${gym.name}   Тренировка: ${tpl.name}\n`)
 for (const it of items) {
   const [ex] = await db.select().from(exercises).where(eq(exercises.id, it.exerciseId))
 
+  // Какое исполнение этого типа стоит в выбранном зале.
+  const [model] = await db
+    .select({ id: equipmentModels.id })
+    .from(equipmentModels)
+    .innerJoin(
+      gymEquipment,
+      and(
+        eq(gymEquipment.equipmentModelId, equipmentModels.id),
+        eq(gymEquipment.gymId, gym.id),
+      ),
+    )
+    .where(eq(equipmentModels.typeId, ex.equipmentTypeId))
+  if (!model) {
+    console.log(`${it.position + 1}. ${ex.name}\n   в этом зале такого тренажёра нет\n`)
+    continue
+  }
+
   const plan = await buildItemPlan({
     userId: user.id,
     gymId: gym.id,
     sessionId: '00000000-0000-0000-0000-000000000000',
     exerciseId: ex.id,
+    equipmentModelId: model.id,
     sets: it.sets,
     ...rangeFromTarget(ex.targetReps),
     extraSets: 0,

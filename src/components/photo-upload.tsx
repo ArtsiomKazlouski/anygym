@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { EquipmentThumb } from '@/components/equipment-icon'
 import { SubmitButton } from '@/components/submit-button'
 import { deletePhoto, savePhoto } from '@/lib/equipment/actions'
-import type { equipmentModels } from '@/db/schema'
+import type { equipmentTypes } from '@/db/schema'
 
 const MAX_SIDE = 400
 const QUALITY = 0.8
@@ -44,7 +44,7 @@ export function PhotoUpload({
   currentUrl,
 }: {
   modelId: string
-  kind: (typeof equipmentModels.$inferSelect)['kind']
+  kind: (typeof equipmentTypes.$inferSelect)['kind']
   currentUrl: string | null
 }) {
   const [preview, setPreview] = useState<string | null>(null)

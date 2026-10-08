@@ -1,6 +1,7 @@
-import type { equipmentModels } from '@/db/schema'
+import type { equipmentTypes } from '@/db/schema'
 
-type Kind = (typeof equipmentModels.$inferSelect)['kind']
+/** Чем задаётся вес — свойство типа тренажёра, а не отдельной железки. */
+type Kind = (typeof equipmentTypes.$inferSelect)['kind']
 
 /**
  * Значок по типу железки — вместо пустого места, пока нет фото.

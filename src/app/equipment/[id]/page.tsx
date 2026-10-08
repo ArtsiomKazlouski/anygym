@@ -12,7 +12,7 @@ import {
   updateEquipment,
   updateExercise,
 } from '@/lib/equipment/actions'
-import { equipmentCard, exercisesPerMuscle } from '@/lib/equipment/queries'
+import { allTypes, equipmentCard, exercisesPerMuscle } from '@/lib/equipment/queries'
 import { MuscleSelect } from '@/components/muscle-select'
 import { LeadInField } from '@/components/lead-in-field'
 import { muscleTitle } from '@/lib/muscles'
@@ -27,9 +27,10 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
   const userId = session?.user?.id
   if (!userId) redirect('/signin')
 
-  const [data, counts] = await Promise.all([
+  const [data, counts, types] = await Promise.all([
     equipmentCard(userId, id),
     exercisesPerMuscle(userId),
+    allTypes(userId),
   ])
   if (!data) redirect('/gyms')
 
@@ -62,6 +63,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
           выбора. Пустое поле означает «не знаю» и оставляет ручной ввод.
         </p>
         <EquipmentForm
+          types={types}
           key={data.model.updatedAt.toISOString()}
           action={updateEquipment}
           model={data.model}
@@ -190,7 +192,7 @@ export default async function EquipmentPage({ params }: { params: Promise<{ id: 
         </p>
         <PhotoUpload
           modelId={data.model.id}
-          kind={data.model.kind}
+          kind={data.type.kind}
           currentUrl={data.model.hasPhoto ? photoUrl(data.model) : null}
         />
       </section>

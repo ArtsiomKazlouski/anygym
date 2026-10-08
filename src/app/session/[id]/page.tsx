@@ -5,7 +5,12 @@ import { DeleteSession } from '@/components/delete-session'
 import { ItemCard } from '@/components/item-card'
 import { SessionHeader } from '@/components/session-header'
 import { exercisesPerMuscle } from '@/lib/equipment/queries'
-import { equipmentInGym, exercisesInGym, sessionWithItems } from '@/lib/session/queries'
+import {
+  exercisesInGym,
+  modelsOfTypeInGym,
+  sessionWithItems,
+  typesInGym,
+} from '@/lib/session/queries'
 import { buildItemPlan } from '@/lib/session/plan'
 import { muscleTitle } from '@/lib/muscles'
 
@@ -18,9 +23,9 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const data = await sessionWithItems(userId, id)
   if (!data) redirect('/')
 
-  const [addable, equipment, muscleCounts] = await Promise.all([
+  const [addable, types, muscleCounts] = await Promise.all([
     exercisesInGym(userId, data.session.gymId),
-    equipmentInGym(userId, data.session.gymId),
+    typesInGym(userId, data.session.gymId),
     exercisesPerMuscle(userId),
   ])
   // Порядок строго по плану: пункт не должен прыгать по списку от смены статуса.
@@ -37,13 +42,22 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       const logged = data.logsByItem.get(row.item.id) ?? []
       const isCurrent = row.item.id === currentId
 
+      // Исполнения этого типа, стоящие в зале. Нужны, только пока выбор
+      // не сделан или ещё можно передумать: список из одного элемента
+      // проставился сам при старте и показывать его незачем.
+      const models =
+        isCurrent && row.exercise && logged.length === 0
+          ? await modelsOfTypeInGym(userId, row.exercise.equipmentTypeId, data.session.gymId)
+          : []
+
       const plan =
-        isCurrent && row.item.exerciseId
+        isCurrent && row.item.exerciseId && row.item.equipmentModelId
           ? await buildItemPlan({
               userId,
               gymId: data.session.gymId,
               sessionId: data.session.id,
               exerciseId: row.item.exerciseId,
+              equipmentModelId: row.item.equipmentModelId,
               sets: row.item.targetSets,
               repMin: row.item.repMin,
               repMax: row.item.repMax,
@@ -57,6 +71,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         logged,
         isCurrent,
         plan,
+        models,
         muscleTitle: row.exercise ? muscleTitle(row.exercise.muscleGroup) : '',
       }
     }),
@@ -72,7 +87,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
       <AddExercise
         sessionId={data.session.id}
         exercises={addable}
-        equipment={equipment}
+        types={types}
         muscleCounts={muscleCounts}
       />
 

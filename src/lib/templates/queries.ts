@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { equipmentModels, exercises, templateItems, templates } from '@/db/schema'
+import { equipmentTypes, exercises, templateItems, templates } from '@/db/schema'
 
 export async function templatesWithCounts(userId: string) {
   return db
@@ -39,10 +39,10 @@ export async function templateWithItems(userId: string, templateId: string) {
       name: exercises.name,
       muscleGroup: exercises.muscleGroup,
       targetReps: exercises.targetReps,
-      modelName: equipmentModels.name,
+      modelName: equipmentTypes.name,
     })
     .from(exercises)
-    .innerJoin(equipmentModels, eq(equipmentModels.id, exercises.equipmentModelId))
+    .innerJoin(equipmentTypes, eq(equipmentTypes.id, exercises.equipmentTypeId))
     .where(and(eq(exercises.userId, userId), eq(exercises.isActive, true)))
     .orderBy(exercises.name)
 

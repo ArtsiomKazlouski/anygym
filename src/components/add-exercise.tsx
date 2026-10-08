@@ -4,7 +4,7 @@ import { LeadInField } from '@/components/lead-in-field'
 import { addSessionItem, createExerciseAndAdd } from '@/lib/session/actions'
 
 type Exercise = { id: string; name: string; modelName: string }
-type Equipment = { id: string; name: string }
+type EquipmentType = { id: string; name: string }
 
 /**
  * Добавление упражнения в идущую тренировку.
@@ -19,12 +19,12 @@ type Equipment = { id: string; name: string }
 export function AddExercise({
   sessionId,
   exercises,
-  equipment,
+  types,
   muscleCounts,
 }: {
   sessionId: string
   exercises: Exercise[]
-  equipment: Equipment[]
+  types: EquipmentType[]
   muscleCounts: Map<string, number>
 }) {
   const control =
@@ -65,13 +65,13 @@ export function AddExercise({
             placeholder="Название, например «Разгибание ног по одной»"
             className={control}
           />
-          <select name="equipmentModelId" required defaultValue="" className={control}>
+          <select name="equipmentTypeId" required defaultValue="" className={control}>
             <option value="" disabled>
               на чём делается
             </option>
-            {equipment.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
+            {types.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
               </option>
             ))}
           </select>
@@ -87,7 +87,8 @@ export function AddExercise({
             Завести и добавить
           </SubmitButton>
           <p className="text-xs opacity-45">
-            Нового тренажёра тут не завести: ему нужны сетка весов и шаг, это отдельный экран.
+            Список — типы тренажёров, которые есть в этом зале. Новую железку тут не завести: ей
+            нужны сетка весов и шаг, это отдельный экран.
           </p>
         </form>
       </details>

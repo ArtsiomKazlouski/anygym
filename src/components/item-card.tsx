@@ -11,10 +11,13 @@ import {
   finishItem,
   focusItem,
   logSet,
+  pickModel,
   removeSessionItem,
 } from '@/lib/session/actions'
 
 type Logged = typeof setLogs.$inferSelect
+
+type Model = { id: string; name: string; locationNote: string | null }
 
 type Props = {
   row: {
@@ -25,15 +28,19 @@ type Props = {
       repMin: number
       repMax: number
       exerciseId: string | null
+      equipmentModelId: string | null
       extraSets: number
       deferredCount: number
     }
     templateItem: { note: string | null } | null
     exercise: { id: string; name: string } | null
+    model: { id: string; name: string } | null
   }
   logged: Logged[]
   isCurrent: boolean
   plan: ItemPlan | null
+  /** Исполнения этого типа, стоящие в зале. Пусто — выбирать не из чего. */
+  models: Model[]
   /** Мышечная группа упражнения — подпись над названием. */
   muscleTitle: string
 }
@@ -84,7 +91,7 @@ const FEEDBACK_RAMP = [
   { value: 'limit', label: 'Тяжелее, чем ждал', hint: 'верх срежем' },
 ] as const
 
-export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
+export function ItemCard({ row, logged, isCurrent, plan, models, muscleTitle }: Props) {
   const { item, exercise } = row
   const title = exercise?.name ?? 'Упражнение удалено'
   const muted = item.status === 'done' || item.status === 'skipped'
@@ -137,7 +144,10 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
     <section className="rounded-2xl border-2 border-black/80 px-4 py-4 dark:border-white/80">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide opacity-40">{muscleTitle}</div>
+          <div className="text-xs uppercase tracking-wide opacity-40">
+            {muscleTitle}
+            {row.model && models.length > 1 && ` · ${row.model.name}`}
+          </div>
           <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -162,6 +172,44 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
 
       {row.templateItem?.note && (
         <p className="mt-2 text-xs opacity-50">{row.templateItem.note}</p>
+      )}
+
+      {/*
+        На чём делаем сегодня. Передних блоков в зале бывает два, и рычаг
+        у них разный — вес с одного на другой не переносится. Пока исполнение
+        одно, вопрос не задаётся: он проставляется сам при старте тренировки.
+        После первого подхода выбор заперт — иначе подходы с одной машины
+        оказались бы приписаны другой.
+      */}
+      {models.length > 1 && logged.length === 0 && (
+        <form action={pickModel} className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <input type="hidden" name="itemId" value={item.id} />
+          {models.map((m) => {
+            const chosen = m.id === item.equipmentModelId
+            return (
+              <SubmitButton
+                key={m.id}
+                name="equipmentModelId"
+                value={m.id}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
+                  chosen
+                    ? 'bg-black text-white dark:bg-white dark:text-black'
+                    : 'border border-black/15 dark:border-white/20'
+                }`}
+              >
+                {m.name}
+                {m.locationNote && <span className="ml-1 opacity-50">· {m.locationNote}</span>}
+              </SubmitButton>
+            )
+          })}
+        </form>
+      )}
+
+      {models.length === 0 && !item.equipmentModelId && (
+        <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs opacity-80">
+          В этом зале такой тренажёр не заведён. Добавь его в «Залах» — тогда появится и вес, и
+          история по нему. Пока можно записать подходы, выбрав тренажёр там.
+        </p>
       )}
 
       {plan && plan.planned.length > 0 && (
@@ -284,11 +332,13 @@ export function ItemCard({ row, logged, isCurrent, plan, muscleTitle }: Props) {
           <p className="text-sm opacity-60">
             {!item.exerciseId
               ? 'Упражнение удалено из каталога — записывать некуда.'
-              : logged.length > 0
-                ? `Все подходы записаны — ${logged.length} из ${item.targetSets}.`
-                : 'Подходов в плане нет.'}
+              : !item.equipmentModelId
+                ? 'Выбери, на каком тренажёре делаешь.'
+                : logged.length > 0
+                  ? `Все подходы записаны — ${logged.length} из ${item.targetSets}.`
+                  : 'Подходов в плане нет.'}
           </p>
-          {item.exerciseId && (
+          {item.exerciseId && item.equipmentModelId && (
             <div className="flex gap-2">
               <form action={addSet} className="flex-1">
                 <input type="hidden" name="itemId" value={item.id} />

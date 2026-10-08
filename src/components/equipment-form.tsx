@@ -4,15 +4,6 @@ import type { equipmentModels } from '@/db/schema'
 
 type Model = Omit<typeof equipmentModels.$inferSelect, 'photo' | 'photoMime'>
 
-const KINDS = [
-  { value: 'stack', label: 'Грузоблок' },
-  { value: 'plate_loaded', label: 'Блины' },
-  { value: 'dumbbell', label: 'Гантели' },
-  { value: 'barbell', label: 'Штанга' },
-  { value: 'cable', label: 'Трос' },
-  { value: 'bodyweight', label: 'Свой вес, без отягощения' },
-] as const
-
 const field =
   'w-full rounded-xl border border-black/15 bg-transparent px-3 py-2.5 text-base dark:border-white/20'
 
@@ -44,11 +35,14 @@ function Labelled({
 export function EquipmentForm({
   action,
   model,
+  types,
   gymId,
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>
   model?: Model
+  /** Типы тренажёров: сетка весов у железки своя, а тип — общий. */
+  types: { id: string; name: string }[]
   gymId?: string
   submitLabel: string
 }) {
@@ -62,11 +56,16 @@ export function EquipmentForm({
       </Labelled>
 
       <div className="grid grid-cols-2 gap-3">
-        <Labelled label="Тип">
-          <select name="kind" defaultValue={model?.kind ?? 'stack'} className={field}>
-            {KINDS.map((k) => (
-              <option key={k.value} value={k.value}>
-                {k.label}
+        <Labelled label="Тип тренажёра" hint="один список на все залы">
+          <select
+            name="typeId"
+            required
+            defaultValue={model?.typeId ?? types[0]?.id ?? ''}
+            className={field}
+          >
+            {types.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
               </option>
             ))}
           </select>

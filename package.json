@@ -12,7 +12,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test": "node --test \"src/**/*.test.mts\"",
-    "db:seed:monday": "tsx --env-file=.env.local scripts/seed-monday.mts",
     "dry-run": "tsx --env-file=.env.local scripts/dry-run.mts",
     "db:backup": "tsx --env-file=.env.local scripts/backup.mts"
   },
