@@ -207,8 +207,14 @@ function buildSets(ctx: PrescribeContext, top: SnappedWeight): SetPlan[] {
   // такие числа округляются обычной сеткой, как страховка. Проценты считает
   // движок, и вот их он кладёт на грубый шаг: 63 от рабочего веса должны
   // стать шестьюдесятью, а не 62.5, которые пришлось бы собирать мелочью.
-  const fromKg = ctx.leadKg?.length
-  const lead = (fromKg ? ctx.leadKg! : (ctx.leadPercents ?? []).map((p) => p * top.weightKg))
+  // Доли от рабочего веса считаются, только пока он положительный. На
+  // гравитроне рабочий вес отрицательный — противовес помогает, — и 60 %
+  // от минус тридцати это минус восемнадцать, то есть подход ТЯЖЕЛЕЕ рабочего.
+  // Подводка процентами там не имеет смысла и просто не строится.
+  const fromKg = Boolean(ctx.leadKg?.length) || top.weightKg <= 0
+  const lead = (
+    fromKg ? (ctx.leadKg ?? []) : (ctx.leadPercents ?? []).map((p) => p * top.weightKg)
+  )
     .slice()
     .sort((a, b) => a - b)
   const leadGrid = fromKg ? grid : coarse

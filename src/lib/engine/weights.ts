@@ -28,6 +28,18 @@ export type WeightGrid = {
 
 export type SnapDirection = 'down' | 'up' | 'nearest'
 
+/**
+ * Нижняя граница железки — то, легче чего она не умеет.
+ *
+ * Обычно это ноль или минимум стека. Но бывает и отрицательной: в гравитроне
+ * противовес помогает подтягиваться, и его вес — это минус к собственному.
+ * Там −30 тяжелее, чем −20, и движение к нулю и есть прогресс.
+ */
+export function lowestWeight(grid: WeightGrid): number {
+  if (grid.ladder?.length) return Math.min(...grid.ladder)
+  return grid.min ?? 0
+}
+
 export type SnappedWeight = {
   /** В единицах железки — это число пользователь выставляет на стеке. */
   weight: number

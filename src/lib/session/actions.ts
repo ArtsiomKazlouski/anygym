@@ -14,7 +14,7 @@ import {
   templateItems,
   workoutSessions,
 } from '@/db/schema'
-import { toKg } from '@/lib/engine'
+import { lowestWeight, toKg } from '@/lib/engine'
 import type { MuscleCode } from '@/lib/muscles'
 import { leadFrom, rangeFromTarget } from '@/lib/templates/parse'
 import { resolveGrid } from './grid'
@@ -147,8 +147,6 @@ export async function logSet(formData: FormData) {
   const prescribed = formData.get('prescribedKg')
   const source = String(formData.get('source') ?? '') || null
 
-  // Ноль допустим: работа со своим весом — это ноль отягощения, а не ошибка.
-  if (!Number.isFinite(weight) || weight < 0) throw new Error('Некорректный вес')
   if (!Number.isFinite(reps) || reps <= 0) throw new Error('Некорректные повторы')
 
   const [model] = await db
@@ -164,6 +162,13 @@ export async function logSet(formData: FormData) {
     )
 
   const grid = resolveGrid(model, instance)
+
+  // Границу задаёт железка, а не знак числа. Ноль — это работа со своим весом,
+  // а минус тридцать на гравитроне — противовес, который помогает подтянуться.
+  // Отвергаем только то, чего машина физически не умеет.
+  if (!Number.isFinite(weight) || weight < lowestWeight(grid) - 1e-9) {
+    throw new Error('Некорректный вес')
+  }
 
   const [{ next }] = await db
     .select({ next: sql<number>`coalesce(max(${setLogs.position}), -1) + 1` })

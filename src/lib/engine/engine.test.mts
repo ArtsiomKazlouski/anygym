@@ -12,7 +12,7 @@ import {
   type LoggedSet,
   type Prescription,
 } from './prescribe.ts'
-import { gridOptions, snapKg, stepKg, type WeightGrid } from './weights.ts'
+import { gridOptions, lowestWeight, snapKg, stepKg, type WeightGrid } from './weights.ts'
 
 /** Грузоблок: равномерный шаг от минимума. */
 const stack = (step: number, min = step, max = 200): WeightGrid => ({
@@ -67,6 +67,82 @@ describe('дискретизация', () => {
     assert.equal(snapKg(20, barbell, 'nearest').weight, 20, 'пустой гриф достижим')
     assert.equal(snapKg(61, barbell, 'nearest').weight, 60)
     assert.equal(snapKg(10, barbell, 'down').weight, 20, 'легче грифа не бывает')
+  })
+})
+
+describe('противовес: вес отрицательный, и меньше помощи — это прогресс', () => {
+  // Гравитрон: стек помогает подтянуться, поэтому его вес записывается
+  // минусом к собственному. Шкала получается сплошной: −30 помощи, −20,
+  // ноль это свой вес на турнике, +2.5 — турник с блином.
+  const gravitron: WeightGrid = { units: 'kg', step: 5, min: -100, max: -5 }
+
+  it('ступень вверх уменьшает помощь', () => {
+    assert.equal(stepKg(-30, gravitron, 1).weight, -25)
+    assert.equal(stepKg(-30, gravitron, -1).weight, -35)
+  })
+
+  it('ниже и выше сетки не выходит', () => {
+    assert.equal(stepKg(-5, gravitron, 1).weight, -5, 'легче, чем даёт стек, не бывает')
+    assert.equal(stepKg(-100, gravitron, -1).weight, -100)
+  })
+
+  it('барабан выбора идёт от самой большой помощи к самой маленькой', () => {
+    const opts = gridOptions(gravitron)
+    assert.equal(opts[0], -100)
+    assert.equal(opts[opts.length - 1], -5)
+    assert.ok(opts.every((w) => w < 0))
+  })
+
+  it('закрытый диапазон снимает помощь, а не добавляет', () => {
+    const p = prescribe({
+      grid: gravitron,
+      repMin: 10,
+      repMax: 12,
+      sets: 3,
+      lastSessionSets: sets([-20, 12, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.equal(p.top?.weight, -15, 'было −20, стало −15: подтягиваешься с меньшей помощью')
+  })
+
+  it('недобор повторов помощь возвращает', () => {
+    const p = prescribe({
+      grid: gravitron,
+      repMin: 10,
+      repMax: 12,
+      sets: 3,
+      lastSessionSets: sets([-20, 8, 'limit']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.equal(p.top?.weight, -25)
+  })
+
+  it('подводка процентами на отрицательном весе не строится', () => {
+    // 60 % от −30 это −18, то есть подход ТЯЖЕЛЕЕ рабочего. Не подводка.
+    const p = prescribe({
+      grid: gravitron,
+      repMin: 10,
+      repMax: 12,
+      sets: 2,
+      leadPercents: [0.6, 0.8],
+      lastSessionSets: sets([-30, 11, 'on_target']),
+      daysSinceMuscle: 7,
+      painRecent: false,
+    })
+    assert.deepEqual(
+      p.sets.map((x) => x.weight.weight),
+      [-30, -30],
+    )
+    assert.ok(p.sets.every((x) => x.role === 'working'))
+  })
+
+  it('нижняя граница железки — это её минимум, а не ноль', () => {
+    assert.equal(lowestWeight(gravitron), -100)
+    assert.equal(lowestWeight({ units: 'kg', step: 2.5, min: 0, max: 40 }), 0)
+    assert.equal(lowestWeight({ units: 'kg', ladder: [2, 4, 6] }), 2)
+    assert.equal(lowestWeight({ units: 'kg', step: 5, barWeight: 20 }), 0, 'минимума нет')
   })
 })
 

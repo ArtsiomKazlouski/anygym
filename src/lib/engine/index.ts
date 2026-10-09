@@ -8,7 +8,16 @@
  * и ломались бы молча.
  */
 export type { SnapDirection, SnappedWeight, Units, WeightGrid } from './weights.ts'
-export { KG_PER_LB, fromKg, gridOptions, rampGrid, snapKg, stepKg, toKg } from './weights.ts'
+export {
+  KG_PER_LB,
+  fromKg,
+  gridOptions,
+  lowestWeight,
+  rampGrid,
+  snapKg,
+  stepKg,
+  toKg,
+} from './weights.ts'
 
 export type {
   LoggedSet,
