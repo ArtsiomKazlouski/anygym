@@ -106,7 +106,7 @@ export function ItemCard({ row, logged, isCurrent, plan, models, muscleTitle }: 
               с планом, и к любому пункту нужно уметь перейти тапом. */}
           <form action={focusItem} className="min-w-0 flex-1">
             <input type="hidden" name="itemId" value={item.id} />
-            <SubmitButton className="w-full text-left">
+            <SubmitButton className="w-full rounded-xl text-left">
               <span className="block truncate text-sm font-medium">{title}</span>
               <span className="block text-xs opacity-50">
                 {item.status === 'done' && `сделано, подходов ${logged.length}`}
