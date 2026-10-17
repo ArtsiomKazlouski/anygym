@@ -38,3 +38,41 @@ a[href] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+
+/*
+ * Бегущая полоса на время серверного действия.
+ *
+ * Отрезок, а не заполнение от нуля к ста: сколько займёт запрос, приложение
+ * не знает, а поддельный прогресс врёт. Анимируются left и width — полоса
+ * высотой в три пикселя, выигрыш от transform тут не стоит возни
+ * с transform-origin.
+ */
+@keyframes anygym-run {
+  0% {
+    left: -35%;
+    width: 35%;
+  }
+  50% {
+    left: 30%;
+    width: 45%;
+  }
+  100% {
+    left: 100%;
+    width: 35%;
+  }
+}
+
+.anygym-running {
+  position: relative;
+  animation: anygym-run 1.1s ease-in-out infinite;
+}
+
+/* Бегущая строка — не та вещь, ради которой стоит спорить с настройками. */
+@media (prefers-reduced-motion: reduce) {
+  .anygym-running {
+    left: 0;
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}

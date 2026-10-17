@@ -186,29 +186,33 @@ export function ItemCard({ row, logged, isCurrent, plan, models, muscleTitle }: 
         После первого подхода выбор заперт — иначе подходы с одной машины
         оказались бы приписаны другой.
       */}
-      {models.length > 0 && logged.length === 0 && (models.length > 1 || !item.equipmentModelId) && (
-        <form action={pickModel} className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          <input type="hidden" name="itemId" value={item.id} />
-          {models.map((m) => {
-            const chosen = m.id === item.equipmentModelId
-            return (
-              <SubmitButton
-                key={m.id}
-                name="equipmentModelId"
-                value={m.id}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
-                  chosen
-                    ? 'bg-black text-white dark:bg-white dark:text-black'
-                    : 'border border-black/15 dark:border-white/20'
-                }`}
-              >
-                {m.name}
-                {m.locationNote && <span className="ml-1 opacity-50">· {m.locationNote}</span>}
-              </SubmitButton>
-            )
-          })}
-        </form>
-      )}
+      {models.length > 0 &&
+        logged.length === 0 &&
+        (models.length > 1 || !item.equipmentModelId) && (
+          <form action={pickModel} className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <input type="hidden" name="itemId" value={item.id} />
+            {models.map((m) => {
+              const chosen = m.id === item.equipmentModelId
+              return (
+                <SubmitButton
+                  key={m.id}
+                  name="equipmentModelId"
+                  value={m.id}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
+                    chosen
+                      ? 'bg-black text-white dark:bg-white dark:text-black'
+                      : 'border border-black/15 dark:border-white/20'
+                  }`}
+                >
+                  {m.name}
+                  {m.locationNote && (
+                    <span className="ml-1 opacity-50">· {m.locationNote}</span>
+                  )}
+                </SubmitButton>
+              )
+            })}
+          </form>
+        )}
 
       {models.length === 0 && !item.equipmentModelId && (
         <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs opacity-80">
