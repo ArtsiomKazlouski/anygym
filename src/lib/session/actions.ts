@@ -347,7 +347,20 @@ export async function addSet(formData: FormData) {
 export async function focusItem(formData: FormData) {
   const userId = await requireUser()
   const itemId = String(formData.get('itemId') ?? '')
-  const { item } = await ownedItem(userId, itemId)
+  const { item, session } = await ownedItem(userId, itemId)
+
+  // Пункт мог остаться без тренажёра: его завели в зале уже после старта
+  // тренировки. Если исполнение в зале одно — проставляем на месте, нечего
+  // спрашивать о том, у чего один ответ.
+  if (!item.equipmentModelId && item.exerciseId) {
+    const sole = await soleModelInGym(item.exerciseId, session.gymId)
+    if (sole) {
+      await db
+        .update(sessionItems)
+        .set({ equipmentModelId: sole })
+        .where(eq(sessionItems.id, item.id))
+    }
+  }
 
   // Прежний активный возвращается в очередь — но если в нём есть подходы,
   // он сделан, а не «ожидает»: иначе переход по списку стирал бы результат.
