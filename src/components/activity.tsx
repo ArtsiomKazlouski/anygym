@@ -79,14 +79,11 @@ function ActivityBar({ busy, done }: { busy: boolean; done: boolean }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-x-0 z-50 h-1 overflow-hidden"
+      className="pointer-events-none fixed inset-x-0 z-50 h-1.5 overflow-hidden"
       style={{ top: 'env(safe-area-inset-top, 0px)' }}
     >
       <div
-        className={
-          'h-full bg-emerald-500 ' +
-          (busy ? 'anygym-running' : 'w-full transition-opacity duration-500 opacity-0')
-        }
+        className={'h-full bg-emerald-500 ' + (busy ? 'anygym-running' : 'anygym-done w-full')}
       />
     </div>
   )

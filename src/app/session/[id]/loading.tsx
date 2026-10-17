@@ -15,7 +15,7 @@ export default function Loading() {
     <>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 z-50 h-1 overflow-hidden"
+        className="pointer-events-none fixed inset-x-0 z-50 h-1.5 overflow-hidden"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="anygym-running h-full bg-emerald-500" />
